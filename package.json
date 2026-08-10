@@ -1,0 +1,17 @@
+{
+  "name": "pro-json-viewer",
+  "version": "1.0.0",
+  "description": "Fast, virtualized, feature-rich Manifest V3 JSON viewer extension with search, JSONPath, smart decoders, and diffing.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "node scripts/generate-icons.js && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^20.12.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  }
+}

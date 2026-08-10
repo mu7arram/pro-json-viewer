@@ -1,0 +1,193 @@
+import { getSettings, saveSettings } from '../shared/storage';
+import { buildFlatNodes, parseJson } from '../engine/parser';
+import { searchTree } from '../engine/jsonpath';
+import { FilterMode, FlatNode, ViewMode } from '../shared/types';
+import { TreeView } from '../ui/tree-view';
+import { Toolbar } from '../ui/toolbar';
+import { openDiffModal } from '../ui/diff-view';
+import '../ui/styles/theme.css';
+
+async function initOptionsPage() {
+  const isScratchpad = window.location.hash === '#scratchpad';
+  const optionsView = document.getElementById('options-view')!;
+  const scratchpadView = document.getElementById('scratchpad-view')!;
+
+  if (isScratchpad) {
+    optionsView.style.display = 'none';
+    scratchpadView.style.display = 'block';
+    await launchScratchpad(scratchpadView);
+    return;
+  }
+
+  // Options settings binding
+  const settings = await getSettings();
+
+  const themeSelect = document.getElementById('opt-theme') as HTMLSelectElement;
+  const depthSelect = document.getElementById('opt-depth') as HTMLSelectElement;
+  const lineNoCheckbox = document.getElementById('opt-line-numbers') as HTMLInputElement;
+  const jwtCheckbox = document.getElementById('opt-detect-jwt') as HTMLInputElement;
+  const datesCheckbox = document.getElementById('opt-detect-dates') as HTMLInputElement;
+  const schemaCheckbox = document.getElementById('opt-detect-schema') as HTMLInputElement;
+  const saveBtn = document.getElementById('opt-save-btn') as HTMLButtonElement;
+  const saveToast = document.getElementById('opt-save-toast') as HTMLElement;
+
+  themeSelect.value = settings.theme;
+  depthSelect.value = String(settings.defaultExpandDepth);
+  lineNoCheckbox.checked = settings.showLineNumbers;
+  jwtCheckbox.checked = settings.detectJwt;
+  datesCheckbox.checked = settings.detectDates;
+  schemaCheckbox.checked = settings.detectSchemaHints;
+
+  saveBtn.onclick = async () => {
+    await saveSettings({
+      theme: themeSelect.value as any,
+      defaultExpandDepth: Number(depthSelect.value),
+      showLineNumbers: lineNoCheckbox.checked,
+      detectJwt: jwtCheckbox.checked,
+      detectDates: datesCheckbox.checked,
+      detectSchemaHints: schemaCheckbox.checked
+    });
+
+    saveToast.style.display = 'inline';
+    setTimeout(() => (saveToast.style.display = 'none'), 2000);
+  };
+}
+
+async function launchScratchpad(container: HTMLElement) {
+  let sampleJsonStr = `{\n  "status": "success",\n  "code": 200,\n  "data": {\n    "user": {\n      "id": 1024,\n      "name": "Jane Doe",\n      "email": "jane.doe@example.com",\n      "created_at": "2026-08-08T21:00:00Z",\n      "timestamp": 1770000000,\n      "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"\n    },\n    "items": [\n      { "id": 1, "title": "Widget A", "price": 29.99 },\n      { "id": 2, "title": "Widget B", "price": 49.99 }\n    ]\n  }\n}`;
+
+  // Check if context menu saved a scratchpad JSON snippet
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    const { pjv_scratchpad_json } = await chrome.storage.local.get('pjv_scratchpad_json');
+    if (pjv_scratchpad_json) {
+      sampleJsonStr = pjv_scratchpad_json;
+    }
+  }
+
+  let jsonObject = parseJson(sampleJsonStr);
+  const settings = await getSettings();
+
+  document.documentElement.setAttribute('data-theme', settings.theme === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : settings.theme);
+
+  const root = document.createElement('div');
+  root.className = 'pjv-root';
+
+  const toolbarContainer = document.createElement('div');
+  const viewportContainer = document.createElement('div');
+  viewportContainer.className = 'pjv-viewport';
+
+  const rawContainer = document.createElement('textarea');
+  rawContainer.className = 'pjv-raw-textarea';
+  rawContainer.value = JSON.stringify(jsonObject, null, 2);
+  rawContainer.style.display = 'none';
+
+  root.appendChild(toolbarContainer);
+  root.appendChild(viewportContainer);
+  root.appendChild(rawContainer);
+  container.appendChild(root);
+
+  // Toast
+  const toastEl = document.createElement('div');
+  toastEl.className = 'pjv-toast';
+  document.body.appendChild(toastEl);
+  const showToast = (msg: string) => {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 2000);
+  };
+
+  let expandedStateMap = new Map<string, boolean>();
+  let currentNodes: FlatNode[] = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+  let activeQuery = '';
+  let activeMode: FilterMode = 'text';
+
+  const treeView = new TreeView({
+    container: viewportContainer,
+    settings,
+    onToggleExpand: (nodeId) => {
+      const node = currentNodes.find((n) => n.id === nodeId);
+      if (node) {
+        expandedStateMap.set(nodeId, !node.isExpanded);
+        currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+        applyRender();
+      }
+    },
+    onCopyToast: showToast
+  });
+
+  const applyRender = () => {
+    const { matchedIds, expandAncestorIds } = searchTree(currentNodes, activeQuery, activeMode);
+    if (activeQuery.trim()) {
+      expandAncestorIds.forEach((id) => expandedStateMap.set(id, true));
+      currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+    }
+    treeView.setNodes(currentNodes, matchedIds);
+  };
+
+  new Toolbar({
+    container: toolbarContainer,
+    onViewModeChange: (mode: ViewMode) => {
+      if (mode === 'raw') {
+        viewportContainer.style.display = 'none';
+        rawContainer.style.display = 'block';
+      } else {
+        rawContainer.style.display = 'none';
+        viewportContainer.style.display = 'block';
+      }
+    },
+    onSearchChange: (query, mode) => {
+      activeQuery = query;
+      activeMode = mode;
+      applyRender();
+    },
+    onExpandDepth: (depth) => {
+      expandedStateMap.clear();
+      currentNodes = buildFlatNodes(jsonObject, depth, expandedStateMap);
+      applyRender();
+    },
+    onCollapseAll: () => {
+      expandedStateMap.clear();
+      currentNodes = buildFlatNodes(jsonObject, 0, expandedStateMap);
+      applyRender();
+    },
+    onExpandAll: () => {
+      expandedStateMap.clear();
+      currentNodes = buildFlatNodes(jsonObject, 100, expandedStateMap);
+      applyRender();
+    },
+    onCopyAll: () => {
+      navigator.clipboard.writeText(JSON.stringify(jsonObject, null, 2));
+      showToast('Copied JSON payload!');
+    },
+    onDownload: () => {
+      const blob = new Blob([JSON.stringify(jsonObject, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scratchpad-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Downloaded JSON file!');
+    },
+    onOpenDiff: () => {
+      openDiffModal({
+        primaryData: jsonObject,
+        onDiffReady: (diffNodes, stats) => {
+          currentNodes = diffNodes;
+          treeView.setNodes(diffNodes);
+          showToast(`Diff Applied: +${stats.added} -${stats.removed} ~${stats.modified}`);
+        }
+      });
+    },
+    onOpenOptions: () => {
+      window.location.hash = '';
+      window.location.reload();
+    }
+  });
+
+  applyRender();
+}
+
+document.addEventListener('DOMContentLoaded', initOptionsPage);

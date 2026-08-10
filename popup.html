@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pro JSON Viewer</title>
+  <style>
+    body {
+      width: 280px;
+      margin: 0;
+      padding: 14px;
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 15px;
+      color: #38bdf8;
+      margin-bottom: 12px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .form-group {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+    select, button {
+      background: #0f172a;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #f8fafc;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button.btn-primary {
+      width: 100%;
+      background: #0284c7;
+      border: none;
+      font-weight: 600;
+      padding: 8px;
+      margin-top: 4px;
+    }
+    button.btn-primary:hover {
+      background: #0369a1;
+    }
+    .footer {
+      font-size: 10px;
+      color: #94a3b8;
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M8 3H6a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h2m8-18h2a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-2" />
+    </svg>
+    Pro JSON Viewer
+  </div>
+
+  <div class="card">
+    <div class="form-group">
+      <span>Auto-format JSON</span>
+      <input type="checkbox" id="auto-activate" />
+    </div>
+    <div class="form-group">
+      <span>Theme</span>
+      <select id="theme-select">
+        <option value="system">System</option>
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="open-scratchpad">Open JSON Scratchpad</button>
+  <button style="width:100%; margin-top:6px;" id="open-options">Options & Settings</button>
+
+  <div class="footer">🔒 100% Local & Private</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

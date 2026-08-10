@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pro JSON Viewer — Options & Scratchpad</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .options-layout {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 24px;
+      background: #1e293b;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    h1 {
+      margin-top: 0;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 22px;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 6px;
+      margin-top: 24px;
+      margin-bottom: 14px;
+    }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px dashed rgba(255,255,255,0.06);
+    }
+    .setting-label {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .setting-desc {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    select, input[type="number"], button {
+      background: #0f172a;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #f8fafc;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    button.btn-save {
+      background: #0284c7;
+      border: none;
+      font-weight: 600;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button.btn-save:hover {
+      background: #0369a1;
+    }
+    #scratchpad-view {
+      display: none;
+      height: 100vh;
+      width: 100vw;
+    }
+  </style>
+</head>
+<body>
+  <!-- Options Settings Container -->
+  <div id="options-view" class="options-layout">
+    <h1>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M8 3H6a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h2m8-18h2a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-2" />
+      </svg>
+      Pro JSON Viewer Settings
+    </h1>
+
+    <div class="section-title">General Preferences</div>
+    
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Theme Mode</div>
+        <div class="setting-desc">Choose dark, light, or follow system default.</div>
+      </div>
+      <select id="opt-theme">
+        <option value="system">System Preference</option>
+        <option value="dark">Dark Theme</option>
+        <option value="light">Light Theme</option>
+      </select>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Default Expand Depth</div>
+        <div class="setting-desc">Number of nested levels to auto-expand on load.</div>
+      </div>
+      <select id="opt-depth">
+        <option value="1">1 Level</option>
+        <option value="2">2 Levels</option>
+        <option value="3">3 Levels</option>
+        <option value="4">4 Levels</option>
+        <option value="5">5 Levels</option>
+      </select>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Show Line Numbers</div>
+        <div class="setting-desc">Display line numbers next to virtualized tree rows.</div>
+      </div>
+      <input type="checkbox" id="opt-line-numbers" />
+    </div>
+
+    <div class="section-title">Smart Decoders & Hints</div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">JWT Token Decoding</div>
+        <div class="setting-desc">Auto-detect base64url JWT tokens and show formatted payload badges.</div>
+      </div>
+      <input type="checkbox" id="opt-detect-jwt" />
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Timestamp & ISO Date Parsing</div>
+        <div class="setting-desc">Convert unix epochs and ISO date strings into local/UTC previews.</div>
+      </div>
+      <input type="checkbox" id="opt-detect-dates" />
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Schema Anomaly Hints</div>
+        <div class="setting-desc">Highlight objects in arrays that miss common keys.</div>
+      </div>
+      <input type="checkbox" id="opt-detect-schema" />
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <button class="btn-save" id="opt-save-btn">Save Settings</button>
+      <span id="opt-save-toast" style="color:#4ade80; font-weight:600; display:none;">✓ Settings Saved!</span>
+    </div>
+  </div>
+
+  <!-- Standalone Scratchpad Viewer Container -->
+  <div id="scratchpad-view"></div>
+
+  <script type="module" src="options.ts"></script>
+</body>
+</html>
