@@ -538,6 +538,14 @@ class TreeView {
         keyEl.className = 'pjv-key';
         keyEl.textContent = typeof node.key === 'number' ? `[${node.key}]` : `"${node.key}"`;
         if (this.matchedIds.has(node.id)) keyEl.classList.add('pjv-search-highlight');
+        
+        keyEl.ondblclick = (e) => {
+          e.stopPropagation();
+          const keyStr = String(node.key);
+          navigator.clipboard.writeText(keyStr);
+          this.onCopyToast(`Copied key "${keyStr}"`);
+        };
+
         rowEl.appendChild(keyEl);
 
         const colonEl = document.createElement('span');
@@ -555,6 +563,15 @@ class TreeView {
         valEl.textContent = node.type === 'string' ? `"${node.value}"` : String(node.value);
       }
       if (this.matchedIds.has(node.id)) valEl.classList.add('pjv-search-highlight');
+      
+      valEl.ondblclick = (e) => {
+        e.stopPropagation();
+        const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+        navigator.clipboard.writeText(rawVal);
+        const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
+        this.onCopyToast(`Copied value "${snippet}"`);
+      };
+
       rowEl.appendChild(valEl);
 
       if (node.smart) {
@@ -583,18 +600,73 @@ class TreeView {
         if (node.hasChildren) this.onToggleExpand(node.id);
       };
 
+      rowEl.ondblclick = (e) => {
+        e.stopPropagation();
+        const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+        navigator.clipboard.writeText(rawVal);
+        const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
+        this.onCopyToast(`Copied value "${snippet}"`);
+      };
+
+      // Hover Quick Action Buttons
+      const hoverActions = document.createElement('span');
+      hoverActions.className = 'pjv-hover-actions';
+
+      const copyValBtn = document.createElement('button');
+      copyValBtn.className = 'pjv-action-btn';
+      copyValBtn.textContent = '📋 Val';
+      copyValBtn.title = 'Copy Value';
+      copyValBtn.onclick = (e) => {
+        e.stopPropagation();
+        const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+        navigator.clipboard.writeText(rawVal);
+        const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
+        this.onCopyToast(`Copied value "${snippet}"`);
+      };
+      hoverActions.appendChild(copyValBtn);
+
+      if (node.key !== null) {
+        const copyKeyBtn = document.createElement('button');
+        copyKeyBtn.className = 'pjv-action-btn';
+        copyKeyBtn.textContent = '🔑 Key';
+        copyKeyBtn.title = 'Copy Key';
+        copyKeyBtn.onclick = (e) => {
+          e.stopPropagation();
+          const keyStr = String(node.key);
+          navigator.clipboard.writeText(keyStr);
+          this.onCopyToast(`Copied key "${keyStr}"`);
+        };
+        hoverActions.appendChild(copyKeyBtn);
+      }
+
+      const copyPathBtn = document.createElement('button');
+      copyPathBtn.className = 'pjv-action-btn';
+      copyPathBtn.textContent = '📍 Path';
+      copyPathBtn.title = 'Copy JSONPath';
+      copyPathBtn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(node.path);
+        this.onCopyToast(`Copied path ${node.path}`);
+      };
+      hoverActions.appendChild(copyPathBtn);
+
+      rowEl.appendChild(hoverActions);
+
       rowEl.oncontextmenu = (e) => {
         e.preventDefault();
         const copyChoice = prompt(`Action for ${node.path}:\n1. Copy Value\n2. Copy Key\n3. Copy JSONPath`, '1');
         if (copyChoice === '1') {
-          navigator.clipboard.writeText(node.hasChildren ? JSON.stringify(node.value) : String(node.value));
-          this.onCopyToast('Copied value!');
+          const valStr = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+          navigator.clipboard.writeText(valStr);
+          const snippet = valStr.length > 25 ? valStr.substring(0, 25) + '...' : valStr;
+          this.onCopyToast(`Copied value "${snippet}"`);
         } else if (copyChoice === '2' && node.key !== null) {
-          navigator.clipboard.writeText(String(node.key));
-          this.onCopyToast('Copied key!');
+          const keyStr = String(node.key);
+          navigator.clipboard.writeText(keyStr);
+          this.onCopyToast(`Copied key "${keyStr}"`);
         } else if (copyChoice === '3') {
           navigator.clipboard.writeText(node.path);
-          this.onCopyToast('Copied JSONPath!');
+          this.onCopyToast(`Copied path ${node.path}`);
         }
       };
 

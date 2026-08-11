@@ -154,6 +154,14 @@ export class TreeView {
         keyEl.className = 'pjv-key';
         keyEl.textContent = typeof node.key === 'number' ? `[${node.key}]` : `"${node.key}"`;
         if (this.matchedIds.has(node.id)) keyEl.classList.add('pjv-search-highlight');
+        
+        keyEl.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          const keyStr = String(node.key);
+          navigator.clipboard.writeText(keyStr);
+          this.onCopyToast(`Copied key "${keyStr}"`);
+        });
+
         rowEl.appendChild(keyEl);
 
         const colonEl = document.createElement('span');
@@ -172,6 +180,15 @@ export class TreeView {
         valEl.textContent = node.type === 'string' ? `"${node.value}"` : String(node.value);
       }
       if (this.matchedIds.has(node.id)) valEl.classList.add('pjv-search-highlight');
+
+      valEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+        navigator.clipboard.writeText(rawVal);
+        const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
+        this.onCopyToast(`Copied value "${snippet}"`);
+      });
+
       rowEl.appendChild(valEl);
 
       // Smart badge rendering (JWT, TIMESTAMP, LINK, BASE64, ANOMALY)
@@ -206,6 +223,59 @@ export class TreeView {
         }
       });
 
+      // Double-click fast copy
+      rowEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+        navigator.clipboard.writeText(rawVal);
+        const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
+        this.onCopyToast(`Copied "${snippet}"`);
+      });
+
+      // Hover Quick Action Buttons
+      const hoverActions = document.createElement('span');
+      hoverActions.className = 'pjv-hover-actions';
+
+      const copyValBtn = document.createElement('button');
+      copyValBtn.className = 'pjv-action-btn';
+      copyValBtn.textContent = '📋 Val';
+      copyValBtn.title = 'Copy Value';
+      copyValBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+        navigator.clipboard.writeText(rawVal);
+        const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
+        this.onCopyToast(`Copied value "${snippet}"`);
+      });
+      hoverActions.appendChild(copyValBtn);
+
+      if (node.key !== null) {
+        const copyKeyBtn = document.createElement('button');
+        copyKeyBtn.className = 'pjv-action-btn';
+        copyKeyBtn.textContent = '🔑 Key';
+        copyKeyBtn.title = 'Copy Key';
+        copyKeyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const keyStr = String(node.key);
+          navigator.clipboard.writeText(keyStr);
+          this.onCopyToast(`Copied key "${keyStr}"`);
+        });
+        hoverActions.appendChild(copyKeyBtn);
+      }
+
+      const copyPathBtn = document.createElement('button');
+      copyPathBtn.className = 'pjv-action-btn';
+      copyPathBtn.textContent = '📍 Path';
+      copyPathBtn.title = 'Copy JSONPath';
+      copyPathBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(node.path);
+        this.onCopyToast(`Copied path ${node.path}`);
+      });
+      hoverActions.appendChild(copyPathBtn);
+
+      rowEl.appendChild(hoverActions);
+
       // Context menu for copying key, value, JSONPath
       rowEl.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -214,15 +284,17 @@ export class TreeView {
           '1'
         );
         if (copyChoice === '1') {
-          const text = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-          navigator.clipboard.writeText(text);
-          this.onCopyToast('Copied node value');
+          const valStr = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
+          navigator.clipboard.writeText(valStr);
+          const snippet = valStr.length > 25 ? valStr.substring(0, 25) + '...' : valStr;
+          this.onCopyToast(`Copied value "${snippet}"`);
         } else if (copyChoice === '2' && node.key !== null) {
-          navigator.clipboard.writeText(String(node.key));
-          this.onCopyToast('Copied node key');
+          const keyStr = String(node.key);
+          navigator.clipboard.writeText(keyStr);
+          this.onCopyToast(`Copied key "${keyStr}"`);
         } else if (copyChoice === '3') {
           navigator.clipboard.writeText(node.path);
-          this.onCopyToast('Copied JSONPath');
+          this.onCopyToast(`Copied path ${node.path}`);
         }
       });
 
