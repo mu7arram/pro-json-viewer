@@ -2,6 +2,8 @@ import { FilterMode, ViewMode } from '../shared/types';
 
 export interface ToolbarOptions {
   container: HTMLElement;
+  currentTheme?: string;
+  onThemeChange?: (theme: string) => void;
   onViewModeChange: (mode: ViewMode) => void;
   onSearchChange: (query: string, mode: FilterMode) => void;
   onExpandDepth: (depth: number) => void;
@@ -57,8 +59,19 @@ export class Toolbar {
         <button class="pjv-btn" id="pjv-btn-collapse-all">Collapse</button>
       </div>
 
-      <!-- Actions -->
+      <!-- Actions & Theme Quick Switcher -->
       <div class="pjv-btn-group">
+        <select id="pjv-toolbar-theme" title="Quick Theme Switcher" style="background:transparent; border:none; color:var(--pjv-text-muted); font-size:11px; cursor:pointer; padding:4px 6px;">
+          <option value="system">🎨 System</option>
+          <option value="dark">🎨 Dark</option>
+          <option value="light">🎨 Light</option>
+          <option value="dracula">🎨 Dracula</option>
+          <option value="onedark">🎨 One Dark</option>
+          <option value="monokai">🎨 Monokai</option>
+          <option value="nord">🎨 Nord</option>
+          <option value="github-dark">🎨 GH Dark</option>
+          <option value="github-light">🎨 GH Light</option>
+        </select>
         <button class="pjv-btn" id="pjv-btn-copy" title="Copy formatted JSON">Copy</button>
         <button class="pjv-btn" id="pjv-btn-download" title="Download JSON file">Save</button>
         <button class="pjv-btn" id="pjv-btn-options" title="Extension Settings">⚙️</button>
@@ -109,5 +122,11 @@ export class Toolbar {
     this.container.querySelector('#pjv-btn-copy')!.addEventListener('click', () => opts.onCopyAll());
     this.container.querySelector('#pjv-btn-download')!.addEventListener('click', () => opts.onDownload());
     this.container.querySelector('#pjv-btn-options')!.addEventListener('click', () => opts.onOpenOptions());
+
+    const themeSelect = this.container.querySelector('#pjv-toolbar-theme') as HTMLSelectElement;
+    if (opts.currentTheme) themeSelect.value = opts.currentTheme;
+    themeSelect.onchange = () => {
+      if (opts.onThemeChange) opts.onThemeChange(themeSelect.value);
+    };
   }
 }

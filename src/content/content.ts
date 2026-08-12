@@ -205,3 +205,18 @@ if (document.readyState === 'loading') {
 } else {
   initProJsonViewer();
 }
+
+// Real-time Storage Listener for Live Theme & Preference Updates
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.pro_json_settings) {
+      const newSettings = changes.pro_json_settings.newValue;
+      if (newSettings && newSettings.theme) {
+        const theme = newSettings.theme;
+        document.documentElement.setAttribute('data-theme', theme === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : theme);
+      }
+    }
+  });
+}

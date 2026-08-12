@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-09  
-**Version**: 1.0.0  
+**Last Updated**: 2026-08-12  
+**Version**: 1.1.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -22,7 +22,7 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 - 🔍 **Instant Search & JSONPath**: Filter keys, values, or run complex JSONPath queries (`$.data[*].id`) with real-time text highlighting and auto-expanding match trees.
 - 💡 **Smart Value Decoders**: Auto-detects and displays inline decoders for ISO dates, Unix timestamps, JWT tokens, URLs, Base64 strings, and array schema anomalies.
 - 🔀 **Structural Diff Mode**: Compare two JSON payloads side-by-side or inline to spot added, removed, or modified keys instantly.
-- 🎨 **Modern Themes**: Sleek dark and light themes that match your system preferences with customizable font sizes, indentation guides, and line numbers.
+- 🎨 **Modern Themes**: Sleek theme preset engine (Dracula, One Dark, Monokai, Nord, GitHub Dark/Light, Slate) with instant live storage sync and quick toolbar switcher.
 - 🔒 **100% Local & Private**: Completely offline processing. Zero external network requests, zero analytics, zero telemetry.
 
 ---
@@ -44,6 +44,14 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 1.1.0 (2026-08-12)
+- Added **Theme Preset Engine**: Dracula, One Dark Pro, Monokai Pro, Nord, GitHub Dark, GitHub Light, Slate Dark, and Clean Light.
+- Added **Quick Toolbar Theme Switcher**: Change themes on-the-fly directly inside the active viewer toolbar.
+- Added **Live Storage Sync**: Theme changes update all active browser tabs instantly without page refresh.
+- Added **Context-Sensitive Fast Double-Click Copy**: Double-click keys or values specifically to copy them.
+- Added **Hover Quick Action Buttons**: Copy Value, Key, or JSONPath directly on row hover.
+- Added **Rich Snippet Toast Notifications**: Displays exact copied text snippets in feedback popups.
 
 ### Version 1.0.0 (2026-08-09)
 - Initial release featuring DOM virtualized tree rendering, search/JSONPath engine, smart date/JWT decoders, diff comparison mode, popup quick controls, and standalone scratchpad.

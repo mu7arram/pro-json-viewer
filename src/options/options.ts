@@ -32,11 +32,23 @@ async function initOptionsPage() {
   const saveToast = document.getElementById('opt-save-toast') as HTMLElement;
 
   themeSelect.value = settings.theme;
+  document.documentElement.setAttribute('data-theme', settings.theme === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : settings.theme);
+
   depthSelect.value = String(settings.defaultExpandDepth);
   lineNoCheckbox.checked = settings.showLineNumbers;
   jwtCheckbox.checked = settings.detectJwt;
   datesCheckbox.checked = settings.detectDates;
   schemaCheckbox.checked = settings.detectSchemaHints;
+
+  themeSelect.onchange = async () => {
+    const newTheme = themeSelect.value as any;
+    document.documentElement.setAttribute('data-theme', newTheme === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : newTheme);
+    await saveSettings({ theme: newTheme });
+  };
 
   saveBtn.onclick = async () => {
     await saveSettings({
@@ -128,6 +140,13 @@ async function launchScratchpad(container: HTMLElement) {
 
   new Toolbar({
     container: toolbarContainer,
+    currentTheme: settings.theme,
+    onThemeChange: async (newTheme) => {
+      document.documentElement.setAttribute('data-theme', newTheme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : newTheme);
+      await saveSettings({ theme: newTheme as any });
+    },
     onViewModeChange: (mode: ViewMode) => {
       if (mode === 'raw') {
         viewportContainer.style.display = 'none';
