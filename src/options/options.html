@@ -50,6 +50,7 @@
     .setting-label {
       font-weight: 600;
       font-size: 13px;
+      display: block;
     }
     .setting-desc {
       font-size: 11px;
@@ -96,7 +97,7 @@
     
     <div class="setting-row">
       <div>
-        <div class="setting-label">Theme Mode</div>
+        <label for="opt-theme" class="setting-label">Theme Mode</label>
         <div class="setting-desc">Choose dark, light, or follow system default.</div>
       </div>
       <select id="opt-theme">
@@ -108,7 +109,7 @@
 
     <div class="setting-row">
       <div>
-        <div class="setting-label">Default Expand Depth</div>
+        <label for="opt-depth" class="setting-label">Default Expand Depth</label>
         <div class="setting-desc">Number of nested levels to auto-expand on load.</div>
       </div>
       <select id="opt-depth">
@@ -122,7 +123,7 @@
 
     <div class="setting-row">
       <div>
-        <div class="setting-label">Show Line Numbers</div>
+        <label for="opt-line-numbers" class="setting-label">Show Line Numbers</label>
         <div class="setting-desc">Display line numbers next to virtualized tree rows.</div>
       </div>
       <input type="checkbox" id="opt-line-numbers" />
@@ -132,7 +133,7 @@
 
     <div class="setting-row">
       <div>
-        <div class="setting-label">JWT Token Decoding</div>
+        <label for="opt-detect-jwt" class="setting-label">JWT Token Decoding</label>
         <div class="setting-desc">Auto-detect base64url JWT tokens and show formatted payload badges.</div>
       </div>
       <input type="checkbox" id="opt-detect-jwt" />
@@ -140,7 +141,7 @@
 
     <div class="setting-row">
       <div>
-        <div class="setting-label">Timestamp & ISO Date Parsing</div>
+        <label for="opt-detect-dates" class="setting-label">Timestamp & ISO Date Parsing</label>
         <div class="setting-desc">Convert unix epochs and ISO date strings into local/UTC previews.</div>
       </div>
       <input type="checkbox" id="opt-detect-dates" />
@@ -148,7 +149,7 @@
 
     <div class="setting-row">
       <div>
-        <div class="setting-label">Schema Anomaly Hints</div>
+        <label for="opt-detect-schema" class="setting-label">Schema Anomaly Hints</label>
         <div class="setting-desc">Highlight objects in arrays that miss common keys.</div>
       </div>
       <input type="checkbox" id="opt-detect-schema" />

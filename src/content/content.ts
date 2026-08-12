@@ -1,6 +1,6 @@
 import { buildFlatNodes, parseJson } from '../engine/parser';
 import { searchTree } from '../engine/jsonpath';
-import { FilterMode, FlatNode, UserSettings, ViewMode } from '../shared/types';
+import { FilterMode, FlatNode, ViewMode } from '../shared/types';
 import { getSettings } from '../shared/storage';
 import { TreeView } from '../ui/tree-view';
 import { Toolbar } from '../ui/toolbar';
