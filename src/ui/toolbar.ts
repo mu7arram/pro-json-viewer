@@ -15,8 +15,6 @@ export interface ToolbarOptions {
 
 export class Toolbar {
   private container: HTMLElement;
-  private currentMode: ViewMode = 'tree';
-  private filterMode: FilterMode = 'text';
 
   constructor(options: ToolbarOptions) {
     this.container = options.container;
@@ -78,7 +76,6 @@ export class Toolbar {
     const diffBtn = this.container.querySelector('#pjv-btn-diff') as HTMLButtonElement;
 
     const setView = (mode: ViewMode) => {
-      this.currentMode = mode;
       [treeBtn, rawBtn, diffBtn].forEach((btn) => btn.classList.remove('active'));
       if (mode === 'tree') treeBtn.classList.add('active');
       if (mode === 'raw') rawBtn.classList.add('active');
