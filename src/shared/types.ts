@@ -30,8 +30,19 @@ export interface FlatNode {
   oldValue?: any;
 }
 
+export type ThemePreset =
+  | 'system'
+  | 'dark'
+  | 'light'
+  | 'dracula'
+  | 'onedark'
+  | 'monokai'
+  | 'nord'
+  | 'github-dark'
+  | 'github-light';
+
 export interface UserSettings {
-  theme: 'system' | 'dark' | 'light';
+  theme: ThemePreset;
   defaultExpandDepth: number; // 1 - 5
   fontSize: number; // 12 - 20 px
   indentSize: number; // 12 - 28 px per level

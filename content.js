@@ -718,6 +718,17 @@ class Toolbar {
       </div>
 
       <div class="pjv-btn-group">
+        <select id="pjv-toolbar-theme" title="Quick Theme Switcher" style="background:transparent; border:none; color:var(--pjv-text-muted); font-size:11px; cursor:pointer; padding:4px 6px;">
+          <option value="system">🎨 System</option>
+          <option value="dark">🎨 Dark</option>
+          <option value="light">🎨 Light</option>
+          <option value="dracula">🎨 Dracula</option>
+          <option value="onedark">🎨 One Dark</option>
+          <option value="monokai">🎨 Monokai</option>
+          <option value="nord">🎨 Nord</option>
+          <option value="github-dark">🎨 GH Dark</option>
+          <option value="github-light">🎨 GH Light</option>
+        </select>
         <button class="pjv-btn" id="pjv-btn-copy">Copy</button>
         <button class="pjv-btn" id="pjv-btn-download">Save</button>
         <button class="pjv-btn" id="pjv-btn-options">⚙️</button>
@@ -767,6 +778,12 @@ class Toolbar {
     this.container.querySelector('#pjv-btn-copy').onclick = () => opts.onCopyAll();
     this.container.querySelector('#pjv-btn-download').onclick = () => opts.onDownload();
     this.container.querySelector('#pjv-btn-options').onclick = () => opts.onOpenOptions();
+
+    const themeSelect = this.container.querySelector('#pjv-toolbar-theme');
+    if (opts.currentTheme) themeSelect.value = opts.currentTheme;
+    themeSelect.onchange = () => {
+      if (opts.onThemeChange) opts.onThemeChange(themeSelect.value);
+    };
   }
 }
 
@@ -913,6 +930,18 @@ function renderApp(mountTarget, rawJsonText) {
 
     new Toolbar({
       container: toolbarContainer,
+      currentTheme: settings.theme,
+      onThemeChange: (newTheme) => {
+        document.documentElement.setAttribute('data-theme', newTheme === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : newTheme);
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get('pro_json_settings').then((data) => {
+            const updated = { ...DEFAULT_SETTINGS, ...data.pro_json_settings, theme: newTheme };
+            chrome.storage.local.set({ pro_json_settings: updated });
+          });
+        }
+      },
       onViewModeChange: (mode) => {
         if (mode === 'raw') {
           viewportContainer.style.display = 'none';
@@ -1048,4 +1077,19 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initProJsonViewer);
 } else {
   initProJsonViewer();
+}
+
+// Real-time Storage Listener for Live Theme & Preference Updates
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.pro_json_settings) {
+      const newSettings = changes.pro_json_settings.newValue;
+      if (newSettings && newSettings.theme) {
+        const theme = newSettings.theme;
+        document.documentElement.setAttribute('data-theme', theme === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : theme);
+      }
+    }
+  });
 }
