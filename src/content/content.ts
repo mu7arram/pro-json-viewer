@@ -2,6 +2,7 @@ import { buildFlatNodes, parseJson } from '../engine/parser';
 import { searchTree } from '../engine/jsonpath';
 import { FilterMode, FlatNode, ViewMode } from '../shared/types';
 import { getSettings } from '../shared/storage';
+import { copyToClipboard } from '../shared/utils';
 import { TreeView } from '../ui/tree-view';
 import { Toolbar } from '../ui/toolbar';
 import { openDiffModal } from '../ui/diff-view';
@@ -133,7 +134,7 @@ async function initProJsonViewer() {
       applySearchAndRender();
     },
     onCopyAll: () => {
-      navigator.clipboard.writeText(JSON.stringify(jsonObject, null, 2));
+      copyToClipboard(JSON.stringify(jsonObject, null, 2));
       showToast('Copied full JSON payload!');
     },
     onDownload: () => {
