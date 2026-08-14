@@ -121,13 +121,13 @@ export class TableView {
   private sortColumn: string | null = null;
   private sortAsc: boolean = true;
   private searchQuery: string = '';
-  private scanDepth: number = 20;
+  private scanDepth: number = 3;
   private onCopyToast?: (msg: string) => void;
 
   constructor(options: TableViewOptions) {
     this.container = options.container;
     this.rawData = options.data;
-    this.scanDepth = options.scanDepth || 20;
+    this.scanDepth = options.scanDepth || 3;
     this.onCopyToast = options.onCopyToast;
 
     this.initDatasets();

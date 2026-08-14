@@ -2,7 +2,7 @@
   const DEFAULT_SETTINGS = {
     theme: 'system',
     defaultExpandDepth: 2,
-    tableScanDepth: 20,
+    tableScanDepth: 3,
     fontSize: 13,
     indentSize: 18,
     showLineNumbers: true,
@@ -81,7 +81,7 @@
 
     depthSelect.value = String(settings.defaultExpandDepth);
     if (scanDepthSelect) {
-      const curDepth = settings.tableScanDepth || 20;
+      const curDepth = settings.tableScanDepth || 3;
       scanDepthSelect.value = String(curDepth);
       if (scanDepthVal) scanDepthVal.textContent = String(curDepth);
 

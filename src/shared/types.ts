@@ -60,7 +60,7 @@ export interface UserSettings {
 export const DEFAULT_SETTINGS: UserSettings = {
   theme: 'system',
   defaultExpandDepth: 2,
-  tableScanDepth: 20,
+  tableScanDepth: 3,
   fontSize: 13,
   indentSize: 18,
   showLineNumbers: true,
@@ -73,5 +73,5 @@ export const DEFAULT_SETTINGS: UserSettings = {
   autoActivateOnJson: true
 };
 
-export type ViewMode = 'tree' | 'raw' | 'diff' | 'table';
+export type ViewMode = 'tree' | 'raw' | 'diff' | 'table' | 'chart';
 export type FilterMode = 'text' | 'regex' | 'jsonpath';
