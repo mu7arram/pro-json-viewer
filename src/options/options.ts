@@ -4,6 +4,8 @@ import { buildFlatNodes, parseJson } from '../engine/parser';
 import { searchTree } from '../engine/jsonpath';
 import { FilterMode, FlatNode, ViewMode } from '../shared/types';
 import { TreeView } from '../ui/tree-view';
+import { TableView } from '../ui/table-view';
+import { ChartView } from '../ui/chart-view';
 import { Toolbar } from '../ui/toolbar';
 import { openDiffModal } from '../ui/diff-view';
 import '../ui/styles/theme.css';
@@ -99,10 +101,14 @@ async function launchScratchpad(container: HTMLElement) {
   const tableContainer = document.createElement('div');
   tableContainer.style.display = 'none';
 
+  const chartContainer = document.createElement('div');
+  chartContainer.style.display = 'none';
+
   root.appendChild(toolbarContainer);
   root.appendChild(viewportContainer);
   root.appendChild(rawContainer);
   root.appendChild(tableContainer);
+  root.appendChild(chartContainer);
   container.appendChild(root);
 
   // Toast
@@ -156,9 +162,22 @@ async function launchScratchpad(container: HTMLElement) {
       viewportContainer.style.display = mode === 'tree' ? 'block' : 'none';
       rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
       tableContainer.style.display = mode === 'table' ? 'block' : 'none';
+      chartContainer.style.display = mode === 'chart' ? 'block' : 'none';
 
       if (mode === 'table') {
         tableContainer.innerHTML = '';
+        new TableView({
+          container: tableContainer,
+          data: jsonObject,
+          scanDepth: settings.tableScanDepth || 3,
+          onCopyToast: showToast
+        });
+      } else if (mode === 'chart') {
+        chartContainer.innerHTML = '';
+        new ChartView({
+          container: chartContainer,
+          data: jsonObject
+        });
       }
     },
     onSearchChange: (query, mode) => {

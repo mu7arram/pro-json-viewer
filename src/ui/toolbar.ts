@@ -37,6 +37,7 @@ export class Toolbar {
       <div class="pjv-btn-group">
         <button class="pjv-btn active" id="pjv-btn-tree">Tree</button>
         <button class="pjv-btn" id="pjv-btn-table">Table</button>
+        <button class="pjv-btn" id="pjv-btn-chart">Chart 📊</button>
         <button class="pjv-btn" id="pjv-btn-raw">Raw</button>
         <button class="pjv-btn" id="pjv-btn-diff">Diff</button>
       </div>
@@ -87,13 +88,15 @@ export class Toolbar {
     // Event Bindings
     const treeBtn = this.container.querySelector('#pjv-btn-tree') as HTMLButtonElement;
     const tableBtn = this.container.querySelector('#pjv-btn-table') as HTMLButtonElement;
+    const chartBtn = this.container.querySelector('#pjv-btn-chart') as HTMLButtonElement;
     const rawBtn = this.container.querySelector('#pjv-btn-raw') as HTMLButtonElement;
     const diffBtn = this.container.querySelector('#pjv-btn-diff') as HTMLButtonElement;
 
     const setView = (mode: ViewMode) => {
-      [treeBtn, tableBtn, rawBtn, diffBtn].forEach((btn) => btn.classList.remove('active'));
+      [treeBtn, tableBtn, chartBtn, rawBtn, diffBtn].forEach((btn) => btn.classList.remove('active'));
       if (mode === 'tree') treeBtn.classList.add('active');
       if (mode === 'table') tableBtn.classList.add('active');
+      if (mode === 'chart') chartBtn.classList.add('active');
       if (mode === 'raw') rawBtn.classList.add('active');
       if (mode === 'diff') diffBtn.classList.add('active');
       opts.onViewModeChange(mode);
@@ -101,6 +104,7 @@ export class Toolbar {
 
     treeBtn.onclick = () => setView('tree');
     tableBtn.onclick = () => setView('table');
+    chartBtn.onclick = () => setView('chart');
     rawBtn.onclick = () => setView('raw');
     diffBtn.onclick = () => {
       setView('diff');
