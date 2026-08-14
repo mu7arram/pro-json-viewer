@@ -3,6 +3,37 @@
  * (Zero-build fully self-contained ES5/ES6 Vanilla JS script)
  */
 
+// --- 0. ROBUST CLIPBOARD HELPER (HTTP & HTTPS) ---
+function copyToClipboard(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text).catch(function() {
+      return fallbackCopy(text);
+    });
+  }
+  return fallbackCopy(text);
+}
+
+function fallbackCopy(text) {
+  return new Promise(function(resolve, reject) {
+    try {
+      var textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      var success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (success) resolve();
+      else reject(new Error('Copy failed'));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 // --- 1. SMART VALUE DETECTOR ---
 function detectSmartValue(value) {
   if (value === null || value === undefined) return null;
@@ -472,7 +503,7 @@ class TreeView {
         if (selectedNode) {
           e.preventDefault();
           const copyText = selectedNode.hasChildren ? selectedNode.path : String(selectedNode.value);
-          navigator.clipboard.writeText(copyText);
+          copyToClipboard(copyText);
           this.onCopyToast(`Copied: ${selectedNode.path}`);
         }
       }
@@ -542,7 +573,7 @@ class TreeView {
         keyEl.ondblclick = (e) => {
           e.stopPropagation();
           const keyStr = String(node.key);
-          navigator.clipboard.writeText(keyStr);
+          copyToClipboard(keyStr);
           this.onCopyToast(`Copied key "${keyStr}"`);
         };
 
@@ -567,7 +598,7 @@ class TreeView {
       valEl.ondblclick = (e) => {
         e.stopPropagation();
         const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-        navigator.clipboard.writeText(rawVal);
+        copyToClipboard(rawVal);
         const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
         this.onCopyToast(`Copied value "${snippet}"`);
       };
@@ -603,7 +634,7 @@ class TreeView {
       rowEl.ondblclick = (e) => {
         e.stopPropagation();
         const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-        navigator.clipboard.writeText(rawVal);
+        copyToClipboard(rawVal);
         const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
         this.onCopyToast(`Copied value "${snippet}"`);
       };
@@ -619,7 +650,7 @@ class TreeView {
       copyValBtn.onclick = (e) => {
         e.stopPropagation();
         const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-        navigator.clipboard.writeText(rawVal);
+        copyToClipboard(rawVal);
         const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
         this.onCopyToast(`Copied value "${snippet}"`);
       };
@@ -633,7 +664,7 @@ class TreeView {
         copyKeyBtn.onclick = (e) => {
           e.stopPropagation();
           const keyStr = String(node.key);
-          navigator.clipboard.writeText(keyStr);
+          copyToClipboard(keyStr);
           this.onCopyToast(`Copied key "${keyStr}"`);
         };
         hoverActions.appendChild(copyKeyBtn);
@@ -645,7 +676,7 @@ class TreeView {
       copyPathBtn.title = 'Copy JSONPath';
       copyPathBtn.onclick = (e) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(node.path);
+        copyToClipboard(node.path);
         this.onCopyToast(`Copied path ${node.path}`);
       };
       hoverActions.appendChild(copyPathBtn);
@@ -657,15 +688,15 @@ class TreeView {
         const copyChoice = prompt(`Action for ${node.path}:\n1. Copy Value\n2. Copy Key\n3. Copy JSONPath`, '1');
         if (copyChoice === '1') {
           const valStr = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-          navigator.clipboard.writeText(valStr);
+          copyToClipboard(valStr);
           const snippet = valStr.length > 25 ? valStr.substring(0, 25) + '...' : valStr;
           this.onCopyToast(`Copied value "${snippet}"`);
         } else if (copyChoice === '2' && node.key !== null) {
           const keyStr = String(node.key);
-          navigator.clipboard.writeText(keyStr);
+          copyToClipboard(keyStr);
           this.onCopyToast(`Copied key "${keyStr}"`);
         } else if (copyChoice === '3') {
-          navigator.clipboard.writeText(node.path);
+          copyToClipboard(node.path);
           this.onCopyToast(`Copied path ${node.path}`);
         }
       };
@@ -696,6 +727,7 @@ class Toolbar {
 
       <div class="pjv-btn-group">
         <button class="pjv-btn active" id="pjv-btn-tree">Tree</button>
+        <button class="pjv-btn" id="pjv-btn-table">Table</button>
         <button class="pjv-btn" id="pjv-btn-raw">Raw</button>
         <button class="pjv-btn" id="pjv-btn-diff">Diff</button>
       </div>
@@ -740,19 +772,22 @@ class Toolbar {
     `;
 
     const treeBtn = this.container.querySelector('#pjv-btn-tree');
+    const tableBtn = this.container.querySelector('#pjv-btn-table');
     const rawBtn = this.container.querySelector('#pjv-btn-raw');
     const diffBtn = this.container.querySelector('#pjv-btn-diff');
 
     const setView = (mode) => {
       this.currentMode = mode;
-      [treeBtn, rawBtn, diffBtn].forEach((btn) => btn.classList.remove('active'));
+      [treeBtn, tableBtn, rawBtn, diffBtn].forEach((btn) => btn.classList.remove('active'));
       if (mode === 'tree') treeBtn.classList.add('active');
+      if (mode === 'table') tableBtn.classList.add('active');
       if (mode === 'raw') rawBtn.classList.add('active');
       if (mode === 'diff') diffBtn.classList.add('active');
       opts.onViewModeChange(mode);
     };
 
     treeBtn.onclick = () => setView('tree');
+    tableBtn.onclick = () => setView('table');
     rawBtn.onclick = () => setView('raw');
     diffBtn.onclick = () => {
       setView('diff');
@@ -784,6 +819,625 @@ class Toolbar {
     themeSelect.onchange = () => {
       if (opts.onThemeChange) opts.onThemeChange(themeSelect.value);
     };
+  }
+}
+
+// --- 7.5. TABLE VIEW COMPONENT ---
+function extractSummaryMetrics(data, currentPath = '$', results = []) {
+  if (!data) return results;
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    Object.keys(data).forEach((key) => {
+      const val = data[key];
+      const propPath = currentPath === '$' ? key : `${currentPath}.${key}`;
+      if (val === null || val === undefined || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        results.push({ property: propPath, value: val });
+      } else if (typeof val === 'object' && !Array.isArray(val)) {
+        extractSummaryMetrics(val, propPath, results);
+      }
+    });
+  }
+  return results;
+}
+
+function formatTabTitle(path, parentObj) {
+  if (path === 'root') return { label: 'Main Data', icon: '📊' };
+  if (path === 'summary') return { label: 'Summary Metrics', icon: '📈' };
+
+  const cleanPath = path.replace(/\[\d+\]/g, '');
+  const segments = cleanPath.split('.');
+  const lastSegment = segments[segments.length - 1] || cleanPath;
+
+  let words = lastSegment
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  if (parentObj && typeof parentObj === 'object') {
+    const parentName = parentObj.skill_name || parentObj.name || parentObj.title || parentObj.skill_id;
+    if (parentName) {
+      words = `${words} (${parentName})`;
+    }
+  }
+
+  let icon = '📋';
+  if (lastSegment.includes('question')) icon = '❓';
+  if (lastSegment.includes('skill')) icon = '🎓';
+  if (lastSegment.includes('strong') || lastSegment.includes('top')) icon = '🏷️';
+  if (lastSegment.includes('weak') || lastSegment.includes('gap')) icon = '⚠️';
+  if (lastSegment.includes('department') || lastSegment.includes('map') || lastSegment.includes('org')) icon = '🏢';
+  if (lastSegment.includes('user') || lastSegment.includes('people') || lastSegment.includes('employee')) icon = '👥';
+
+  return { label: words, icon };
+}
+
+function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj = null, maxDepth = 20) {
+  if (!data || maxDepth < 0) return results;
+
+  if (typeof data === 'string' && (data.trim().startsWith('[') || data.trim().startsWith('{'))) {
+    try { data = JSON.parse(data); } catch (e) {}
+  }
+
+  if (Array.isArray(data)) {
+    if (data.length > 0 && typeof data[0] === 'object' && data[0] !== null && !Array.isArray(data[0])) {
+      const pathStr = currentPath === '$' ? 'root' : currentPath;
+      const { label, icon } = formatTabTitle(pathStr, parentObj);
+      results.push({
+        id: pathStr,
+        label,
+        icon,
+        type: 'array',
+        array: data,
+        count: data.length
+      });
+    }
+    data.forEach((item, idx) => {
+      let parsedItem = item;
+      if (typeof item === 'string' && (item.trim().startsWith('{') || item.trim().startsWith('['))) {
+        try { parsedItem = JSON.parse(item); } catch (e) {}
+      }
+      if (typeof parsedItem === 'object' && parsedItem !== null) {
+        findAllArraysOfObjects(parsedItem, `${currentPath}[${idx}]`, results, parsedItem, maxDepth - 1);
+      }
+    });
+  } else if (typeof data === 'object' && data !== null) {
+    Object.keys(data).forEach((key) => {
+      let val = data[key];
+      if (typeof val === 'string' && (val.trim().startsWith('[') || val.trim().startsWith('{'))) {
+        try { val = JSON.parse(val); } catch (e) {}
+      }
+      const nextPath = currentPath === '$' ? `$.${key}` : `${currentPath}.${key}`;
+      findAllArraysOfObjects(val, nextPath, results, data, maxDepth - 1);
+    });
+  }
+
+  return results;
+}
+
+class TableView {
+  constructor(options) {
+    this.container = options.container;
+    this.rawData = options.data;
+    this.scanDepth = options.scanDepth || 20;
+    this.onCopyToast = options.onCopyToast;
+    this.datasets = [];
+    this.activeTabId = '';
+    this.currentArray = [];
+    this.columns = [];
+    this.sortColumn = null;
+    this.sortAsc = true;
+    this.searchQuery = '';
+
+    this.initDatasets();
+    this.render();
+  }
+
+  initDatasets() {
+    this.datasets = [];
+
+    const summaryRows = extractSummaryMetrics(this.rawData);
+    if (summaryRows.length > 0) {
+      this.datasets.push({
+        id: 'summary',
+        label: 'Summary Metrics',
+        icon: '📈',
+        type: 'summary',
+        array: summaryRows,
+        count: summaryRows.length
+      });
+    }
+
+    const rawArrays = findAllArraysOfObjects(this.rawData, '$', [], null, this.scanDepth);
+
+    const seenIds = new Set();
+    const uniqueArrays = [];
+    rawArrays.forEach((ds) => {
+      if (!seenIds.has(ds.id)) {
+        seenIds.add(ds.id);
+        uniqueArrays.push(ds);
+      }
+    });
+
+    const questionDatasets = uniqueArrays.filter((d) => d.id.includes('.questions'));
+    if (questionDatasets.length >= 1) {
+      const allQuestions = [];
+      questionDatasets.forEach((ds) => {
+        const parentMatch = ds.label.match(/\(([^)]+)\)/);
+        const parentName = parentMatch ? parentMatch[1] : '';
+
+        ds.array.forEach((q) => {
+          allQuestions.push({
+            skill: parentName || 'General',
+            ...q
+          });
+        });
+      });
+
+      this.datasets.push({
+        id: 'all-questions-merged',
+        label: 'All Questions',
+        icon: '❓',
+        type: 'array',
+        array: allQuestions,
+        count: allQuestions.length
+      });
+    }
+
+    this.datasets.push(...uniqueArrays);
+
+    if (this.datasets.length > 0) {
+      const mergedQuestionsTab = this.datasets.find((d) => d.id === 'all-questions-merged');
+      const questionTab = this.datasets.find((d) => d.id.includes('.questions'));
+      const firstArrayTab = this.datasets.find((d) => d.type === 'array');
+
+      this.activeTabId = mergedQuestionsTab
+        ? mergedQuestionsTab.id
+        : (questionTab ? questionTab.id : (firstArrayTab ? firstArrayTab.id : this.datasets[0].id));
+
+      this.loadActiveTab();
+    }
+  }
+
+  loadActiveTab() {
+    const active = this.datasets.find((d) => d.id === this.activeTabId);
+    if (!active) return;
+
+    this.currentArray = active.array;
+    this.extractColumns();
+    this.sortColumn = null;
+    this.sortAsc = true;
+  }
+
+  extractColumns() {
+    const keysSet = new Set();
+    this.currentArray.forEach((row) => {
+      if (typeof row === 'object' && row !== null) {
+        Object.keys(row).forEach((k) => keysSet.add(k));
+      }
+    });
+    this.columns = Array.from(keysSet);
+  }
+
+  render() {
+    this.container.innerHTML = '';
+    if (this.datasets.length === 0) {
+      this.container.innerHTML = `
+        <div style="padding: 40px; text-align: center; color: var(--pjv-text-muted);">
+          <h3 style="margin-top:0; color:var(--pjv-syntax-key);">📊 Table View Unavailable</h3>
+          <p style="font-size: 13px; max-width: 420px; margin: 0 auto; line-height: 1.5;">
+            No structured datasets or array of objects were detected in this JSON payload.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'pjv-table-container';
+
+    // 1. Dashboard Tab Bar Navigation
+    const tabsBar = document.createElement('div');
+    tabsBar.className = 'pjv-table-tabs-container';
+
+    this.datasets.forEach((dataset) => {
+      const tabBtn = document.createElement('button');
+      tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
+      tabBtn.innerHTML = `
+        <span>${dataset.icon}</span>
+        <span>${dataset.label}</span>
+        <span class="pjv-tab-badge">${dataset.count}</span>
+      `;
+      tabBtn.onclick = () => {
+        this.activeTabId = dataset.id;
+        this.loadActiveTab();
+        this.render();
+      };
+      tabsBar.appendChild(tabBtn);
+    });
+    wrapper.appendChild(tabsBar);
+
+    // 2. Header & Controls Bar
+    const header = document.createElement('div');
+    header.className = 'pjv-table-header';
+
+    const activeDataset = this.datasets.find((d) => d.id === this.activeTabId);
+    const meta = document.createElement('div');
+    meta.className = 'pjv-table-meta';
+    meta.innerHTML = `
+      <span>${activeDataset.icon} ${activeDataset.label}</span>
+      <span class="pjv-badge-count">${this.getFilteredRows().length} / ${this.currentArray.length} items</span>
+    `;
+
+    const controls = document.createElement('div');
+    controls.className = 'pjv-table-controls';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Filter rows...';
+    searchInput.value = this.searchQuery;
+    searchInput.style.cssText = `
+      background: var(--pjv-bg-badge);
+      color: var(--pjv-text-main);
+      border: 1px solid var(--pjv-border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      outline: none;
+      width: 160px;
+    `;
+    searchInput.oninput = () => {
+      this.searchQuery = searchInput.value;
+      this.updateBody();
+    };
+
+    const csvBtn = document.createElement('button');
+    csvBtn.className = 'pjv-btn';
+    csvBtn.innerHTML = '📥 Export CSV';
+    csvBtn.onclick = () => this.exportCsv();
+
+    const depthContainer = document.createElement('div');
+    depthContainer.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+
+    const depthLabel = document.createElement('span');
+    depthLabel.textContent = 'Depth:';
+    depthLabel.style.cssText = 'color: var(--pjv-text-muted); font-size: 11px; font-weight: 500;';
+
+    // Magnetic Dot Slider
+    const dotSliderWrapper = document.createElement('div');
+    dotSliderWrapper.className = 'pjv-magnetic-dot-slider';
+
+    const dotTrack = document.createElement('div');
+    dotTrack.className = 'pjv-dot-slider-track';
+
+    const dotElements = [];
+    const maxDepthVal = 20;
+    for (let i = 1; i <= maxDepthVal; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'pjv-dot-step';
+      if (i <= this.scanDepth) dot.classList.add('active');
+      if (i === this.scanDepth) dot.classList.add('current');
+      dotTrack.appendChild(dot);
+      dotElements.push(dot);
+    }
+
+    const rangeInput = document.createElement('input');
+    rangeInput.type = 'range';
+    rangeInput.min = '1';
+    rangeInput.max = String(maxDepthVal);
+    rangeInput.step = '1';
+    rangeInput.value = String(this.scanDepth);
+    rangeInput.className = 'pjv-dot-slider-input';
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'pjv-dot-tooltip';
+    tooltip.textContent = `Depth ${this.scanDepth}`;
+
+    dotSliderWrapper.appendChild(dotTrack);
+    dotSliderWrapper.appendChild(rangeInput);
+    dotSliderWrapper.appendChild(tooltip);
+
+    const updateTooltipPos = (val) => {
+      const trackWidth = 150; // 170px width - 20px padding
+      const posX = 10 + ((val - 1) / (maxDepthVal - 1)) * trackWidth;
+      tooltip.style.left = `${posX}px`;
+    };
+    updateTooltipPos(this.scanDepth);
+
+    dotSliderWrapper.onmousemove = (e) => {
+      const rect = dotSliderWrapper.getBoundingClientRect();
+      const padding = 10;
+      const trackWidth = rect.width - (padding * 2);
+      const mouseX = Math.max(0, Math.min(trackWidth, e.clientX - rect.left - padding));
+      const pct = trackWidth > 0 ? mouseX / trackWidth : 0;
+      const hoverVal = Math.max(1, Math.min(maxDepthVal, Math.round(pct * (maxDepthVal - 1)) + 1));
+      tooltip.textContent = `Depth ${hoverVal}`;
+      tooltip.style.left = `${padding + ((hoverVal - 1) / (maxDepthVal - 1)) * trackWidth}px`;
+    };
+
+    dotSliderWrapper.onmouseleave = () => {
+      tooltip.textContent = `Depth ${this.scanDepth}`;
+      updateTooltipPos(this.scanDepth);
+    };
+
+    const depthBadge = document.createElement('span');
+    depthBadge.className = 'pjv-tab-badge';
+    depthBadge.textContent = String(this.scanDepth);
+    depthBadge.style.cssText = 'font-weight: 600; min-width: 20px; text-align: center;';
+
+    const updateDots = (val) => {
+      depthBadge.textContent = String(val);
+      updateTooltipPos(val);
+      dotElements.forEach((dot, idx) => {
+        const stepNum = idx + 1;
+        dot.classList.toggle('active', stepNum <= val);
+        dot.classList.toggle('current', stepNum === val);
+      });
+    };
+
+    rangeInput.oninput = () => {
+      const val = Number(rangeInput.value);
+      tooltip.textContent = `Depth ${val}`;
+      updateDots(val);
+    };
+
+    rangeInput.onchange = () => {
+      const val = Number(rangeInput.value);
+      this.scanDepth = val;
+      this.initDatasets();
+      this.render();
+      if (this.onCopyToast) this.onCopyToast(`Rescanned datasets at Depth ${this.scanDepth}`);
+    };
+
+    depthContainer.appendChild(depthLabel);
+    depthContainer.appendChild(dotSliderWrapper);
+    depthContainer.appendChild(depthBadge);
+
+    controls.appendChild(searchInput);
+    controls.appendChild(depthContainer);
+    controls.appendChild(csvBtn);
+    header.appendChild(meta);
+    header.appendChild(controls);
+    wrapper.appendChild(header);
+
+    // 3. Table Content
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'pjv-table-wrapper';
+
+    const table = document.createElement('table');
+    table.className = 'pjv-table';
+
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+
+    const indexTh = document.createElement('th');
+    indexTh.textContent = '#';
+    indexTh.style.width = '40px';
+    headerRow.appendChild(indexTh);
+
+    this.columns.forEach((col) => {
+      const th = document.createElement('th');
+      th.innerHTML = `${col} <span class="sort-icon">${this.sortColumn === col ? (this.sortAsc ? '▲' : '▼') : '↕'}</span>`;
+      if (this.sortColumn === col) th.classList.add('sorted');
+
+      th.onclick = () => {
+        if (this.sortColumn === col) {
+          if (this.sortAsc) {
+            this.sortAsc = false;
+          } else {
+            this.sortColumn = null;
+            this.sortAsc = true;
+          }
+        } else {
+          this.sortColumn = col;
+          this.sortAsc = true;
+        }
+        this.render();
+      };
+      headerRow.appendChild(th);
+    });
+
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    tbody.id = 'pjv-table-tbody';
+    table.appendChild(tbody);
+
+    tableWrapper.appendChild(table);
+    wrapper.appendChild(tableWrapper);
+    this.container.appendChild(wrapper);
+
+    this.updateBody();
+  }
+
+  getFilteredRows() {
+    let rows = this.currentArray.map((row, index) => ({ row, index }));
+
+    if (this.searchQuery.trim()) {
+      const q = this.searchQuery.toLowerCase();
+      rows = rows.filter(({ row }) => {
+        return Object.values(row).some((val) => {
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(q);
+        });
+      });
+    }
+
+    if (this.sortColumn) {
+      const col = this.sortColumn;
+      const asc = this.sortAsc;
+      rows.sort((a, b) => {
+        const valA = a.row[col];
+        const valB = b.row[col];
+
+        if (valA === valB) return 0;
+        if (valA === undefined || valA === null) return 1;
+        if (valB === undefined || valB === null) return -1;
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return asc ? valA - valB : valB - valA;
+        }
+
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        return asc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      });
+    }
+
+    return rows;
+  }
+
+  updateBody() {
+    const tbody = this.container.querySelector('#pjv-table-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    const filtered = this.getFilteredRows();
+
+    filtered.forEach(({ row, index }) => {
+      const tr = document.createElement('tr');
+
+      const tdIndex = document.createElement('td');
+      tdIndex.textContent = String(index + 1);
+      tdIndex.style.color = 'var(--pjv-text-muted)';
+      tr.appendChild(tdIndex);
+
+      this.columns.forEach((col) => {
+        const td = document.createElement('td');
+        const val = row[col];
+
+        td.innerHTML = this.renderSmartCell(val, col);
+        td.title = typeof val === 'object' ? JSON.stringify(val) : String(val);
+
+        td.ondblclick = () => {
+          const cellStr = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val);
+          copyToClipboard(cellStr);
+          if (this.onCopyToast) this.onCopyToast(`Copied "${cellStr.slice(0, 25)}..."`);
+        };
+
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  renderSmartCell(val, colKey) {
+    if (val === null || val === undefined) {
+      return `<span class="pjv-table-cell-null">null</span>`;
+    }
+
+    if (typeof val === 'boolean') {
+      return `<span class="pjv-table-cell-boolean">${val}</span>`;
+    }
+
+    const colLower = colKey.toLowerCase();
+
+    let parsedVal = val;
+    if (typeof val === 'string' && (val.trim().startsWith('[') || val.trim().startsWith('{'))) {
+      try { parsedVal = JSON.parse(val); } catch (e) {}
+    }
+
+    if (colLower === 'type' && typeof val === 'string') {
+      if (val === 'single-choice') return `<span class="pjv-pill pjv-type-single">🟢 ${val}</span>`;
+      if (val === 'multiple-choice') return `<span class="pjv-pill pjv-type-multiple">🟣 ${val}</span>`;
+      if (val === 'dropdown') return `<span class="pjv-pill pjv-type-dropdown">🔵 ${val}</span>`;
+      if (val === 'ranking') return `<span class="pjv-pill pjv-type-ranking">🟡 ${val}</span>`;
+      return `<span class="pjv-pill pjv-type-text">⚪ ${val}</span>`;
+    }
+
+    if ((colLower === 'questions' || colLower === 'skill_levels') && Array.isArray(parsedVal)) {
+      return `<span class="pjv-table-cell-json" style="background: var(--pjv-badge-local-bg); color: var(--pjv-badge-local-text); border: 1px solid var(--pjv-badge-local-border); font-weight:600;">❓ ${parsedVal.length} ${colKey}</span>`;
+    }
+
+    if (typeof val === 'string') {
+      const lower = val.toLowerCase();
+      if (lower === 'low') return `<span class="pjv-pill pjv-pill-low">🟢 Low</span>`;
+      if (lower === 'medium') return `<span class="pjv-pill pjv-pill-medium">🟠 Medium</span>`;
+      if (lower === 'high' || lower === 'critical') return `<span class="pjv-pill pjv-pill-high">🔴 ${val}</span>`;
+    }
+
+    if (colLower === 'expected' && typeof parsedVal === 'object' && parsedVal !== null) {
+      if (parsedVal.correct) {
+        const correctVal = Array.isArray(parsedVal.correct) ? parsedVal.correct.join(', ') : parsedVal.correct;
+        return `<span class="pjv-pill pjv-type-single" style="font-family:var(--pjv-font-mono);">Key: ${correctVal}</span>`;
+      }
+    }
+
+    if (colLower === 'options' && Array.isArray(parsedVal)) {
+      const optionDetails = parsedVal.map((o) => `${o.option || '•'}: ${o.text || ''} (${o.score ?? 0}pt)`).join('\n');
+      return `<span class="pjv-table-cell-json" title="${this.escapeHtml(optionDetails)}">📋 ${parsedVal.length} options</span>`;
+    }
+
+    const isProgressCol = colLower.includes('percentage') || colLower.includes('progress') || colLower.includes('coverage');
+    if (isProgressCol && typeof val === 'number') {
+      const pct = Math.min(100, Math.max(0, val));
+      return `
+        <div class="pjv-progress-container">
+          <div class="pjv-progress-track">
+            <div class="pjv-progress-fill" style="width: ${pct}%"></div>
+          </div>
+          <span style="font-weight:600; font-size:11px;">${val}%</span>
+        </div>
+      `;
+    }
+
+    if (typeof val === 'number') {
+      return `<span class="pjv-table-cell-number">${val}</span>`;
+    }
+
+    if (typeof val === 'string') {
+      const escaped = this.escapeHtml(val);
+      const isArabic = /[\u0600-\u06FF]/.test(val);
+      if (isArabic) {
+        return `<span class="pjv-cell-rtl" dir="rtl">${escaped}</span>`;
+      }
+      return `<span class="pjv-table-cell-string">${escaped}</span>`;
+    }
+
+    const jsonStr = JSON.stringify(val);
+    return `<span class="pjv-table-cell-json">${this.escapeHtml(jsonStr)}</span>`;
+  }
+
+  escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  exportCsv() {
+    const filtered = this.getFilteredRows();
+    if (filtered.length === 0) return;
+
+    const csvRows = [];
+    csvRows.push(this.columns.map((c) => `"${c.replace(/"/g, '""')}"`).join(','));
+
+    filtered.forEach(({ row }) => {
+      const line = this.columns.map((col) => {
+        const val = row[col];
+        if (val === null || val === undefined) return '""';
+        const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+        return `"${str.replace(/"/g, '""')}"`;
+      }).join(',');
+      csvRows.push(line);
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pro-json-table-${this.activeTabId}-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (this.onCopyToast) this.onCopyToast('Exported CSV file!');
   }
 }
 
@@ -885,9 +1539,13 @@ function renderApp(mountTarget, rawJsonText) {
     rawContainer.value = JSON.stringify(jsonObject, null, 2);
     rawContainer.style.display = 'none';
 
+    const tableContainer = document.createElement('div');
+    tableContainer.style.display = 'none';
+
     root.appendChild(toolbarContainer);
     root.appendChild(viewportContainer);
     root.appendChild(rawContainer);
+    root.appendChild(tableContainer);
     mountTarget.appendChild(root);
 
     // Toast
@@ -904,6 +1562,7 @@ function renderApp(mountTarget, rawJsonText) {
     let currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
     let activeQuery = '';
     let activeMode = 'text';
+    let tableView = null;
 
     const treeView = new TreeView({
       container: viewportContainer,
@@ -943,12 +1602,18 @@ function renderApp(mountTarget, rawJsonText) {
         }
       },
       onViewModeChange: (mode) => {
-        if (mode === 'raw') {
-          viewportContainer.style.display = 'none';
-          rawContainer.style.display = 'block';
-        } else {
-          rawContainer.style.display = 'none';
-          viewportContainer.style.display = 'block';
+        viewportContainer.style.display = mode === 'tree' ? 'block' : 'none';
+        rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
+        tableContainer.style.display = mode === 'table' ? 'block' : 'none';
+
+        if (mode === 'table') {
+          tableContainer.innerHTML = '';
+          tableView = new TableView({
+            container: tableContainer,
+            data: jsonObject,
+            scanDepth: settings.tableScanDepth || 20,
+            onCopyToast: showToast
+          });
         }
       },
       onSearchChange: (query, mode) => {
@@ -972,7 +1637,7 @@ function renderApp(mountTarget, rawJsonText) {
         applyRender();
       },
       onCopyAll: () => {
-        navigator.clipboard.writeText(JSON.stringify(jsonObject, null, 2));
+        copyToClipboard(JSON.stringify(jsonObject, null, 2));
         showToast('Copied JSON!');
       },
       onDownload: () => {

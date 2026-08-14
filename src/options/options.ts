@@ -1,4 +1,5 @@
 import { getSettings, saveSettings } from '../shared/storage';
+import { copyToClipboard } from '../shared/utils';
 import { buildFlatNodes, parseJson } from '../engine/parser';
 import { searchTree } from '../engine/jsonpath';
 import { FilterMode, FlatNode, ViewMode } from '../shared/types';
@@ -95,9 +96,13 @@ async function launchScratchpad(container: HTMLElement) {
   rawContainer.value = JSON.stringify(jsonObject, null, 2);
   rawContainer.style.display = 'none';
 
+  const tableContainer = document.createElement('div');
+  tableContainer.style.display = 'none';
+
   root.appendChild(toolbarContainer);
   root.appendChild(viewportContainer);
   root.appendChild(rawContainer);
+  root.appendChild(tableContainer);
   container.appendChild(root);
 
   // Toast
@@ -148,12 +153,12 @@ async function launchScratchpad(container: HTMLElement) {
       await saveSettings({ theme: newTheme as any });
     },
     onViewModeChange: (mode: ViewMode) => {
-      if (mode === 'raw') {
-        viewportContainer.style.display = 'none';
-        rawContainer.style.display = 'block';
-      } else {
-        rawContainer.style.display = 'none';
-        viewportContainer.style.display = 'block';
+      viewportContainer.style.display = mode === 'tree' ? 'block' : 'none';
+      rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
+      tableContainer.style.display = mode === 'table' ? 'block' : 'none';
+
+      if (mode === 'table') {
+        tableContainer.innerHTML = '';
       }
     },
     onSearchChange: (query, mode) => {
@@ -177,7 +182,7 @@ async function launchScratchpad(container: HTMLElement) {
       applyRender();
     },
     onCopyAll: () => {
-      navigator.clipboard.writeText(JSON.stringify(jsonObject, null, 2));
+      copyToClipboard(JSON.stringify(jsonObject, null, 2));
       showToast('Copied JSON payload!');
     },
     onDownload: () => {

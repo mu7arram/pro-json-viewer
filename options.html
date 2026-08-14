@@ -130,6 +130,20 @@
 
     <div class="setting-row">
       <div>
+        <label for="opt-scan-depth" class="setting-label">Table Scan Depth (1 - 20)</label>
+        <div class="setting-desc">Magnetic slider to set default search depth for nested arrays.</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="pjv-magnetic-dot-slider" id="opt-dot-slider-container">
+          <div class="pjv-dot-slider-track" id="opt-dot-track"></div>
+          <input type="range" id="opt-scan-depth" min="1" max="20" step="1" value="20" class="pjv-dot-slider-input" />
+        </div>
+        <span id="opt-scan-depth-val" style="font-weight: 600; font-size: 13px; color: #0284c7; min-width: 20px;">20</span>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div>
         <label for="opt-line-numbers" class="setting-label">Show Line Numbers</label>
         <div class="setting-desc">Display line numbers next to virtualized tree rows.</div>
       </div>

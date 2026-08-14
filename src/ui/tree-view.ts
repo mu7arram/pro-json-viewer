@@ -1,5 +1,6 @@
 import { FlatNode, UserSettings } from '../shared/types';
 import { Virtualizer } from '../engine/virtualizer';
+import { copyToClipboard } from '../shared/utils';
 
 export interface TreeViewOptions {
   container: HTMLElement;
@@ -84,7 +85,7 @@ export class TreeView {
           const copyText = selectedNode.hasChildren
             ? selectedNode.path
             : String(selectedNode.value);
-          navigator.clipboard.writeText(copyText);
+          copyToClipboard(copyText);
           this.onCopyToast(`Copied value for ${selectedNode.path}`);
         }
       }
@@ -158,7 +159,7 @@ export class TreeView {
         keyEl.addEventListener('dblclick', (e) => {
           e.stopPropagation();
           const keyStr = String(node.key);
-          navigator.clipboard.writeText(keyStr);
+          copyToClipboard(keyStr);
           this.onCopyToast(`Copied key "${keyStr}"`);
         });
 
@@ -184,7 +185,7 @@ export class TreeView {
       valEl.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-        navigator.clipboard.writeText(rawVal);
+        copyToClipboard(rawVal);
         const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
         this.onCopyToast(`Copied value "${snippet}"`);
       });
@@ -227,7 +228,7 @@ export class TreeView {
       rowEl.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-        navigator.clipboard.writeText(rawVal);
+        copyToClipboard(rawVal);
         const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
         this.onCopyToast(`Copied "${snippet}"`);
       });
@@ -243,7 +244,7 @@ export class TreeView {
       copyValBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const rawVal = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-        navigator.clipboard.writeText(rawVal);
+        copyToClipboard(rawVal);
         const snippet = rawVal.length > 25 ? rawVal.substring(0, 25) + '...' : rawVal;
         this.onCopyToast(`Copied value "${snippet}"`);
       });
@@ -257,7 +258,7 @@ export class TreeView {
         copyKeyBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           const keyStr = String(node.key);
-          navigator.clipboard.writeText(keyStr);
+          copyToClipboard(keyStr);
           this.onCopyToast(`Copied key "${keyStr}"`);
         });
         hoverActions.appendChild(copyKeyBtn);
@@ -269,7 +270,7 @@ export class TreeView {
       copyPathBtn.title = 'Copy JSONPath';
       copyPathBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(node.path);
+        copyToClipboard(node.path);
         this.onCopyToast(`Copied path ${node.path}`);
       });
       hoverActions.appendChild(copyPathBtn);
@@ -285,15 +286,15 @@ export class TreeView {
         );
         if (copyChoice === '1') {
           const valStr = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-          navigator.clipboard.writeText(valStr);
+          copyToClipboard(valStr);
           const snippet = valStr.length > 25 ? valStr.substring(0, 25) + '...' : valStr;
           this.onCopyToast(`Copied value "${snippet}"`);
         } else if (copyChoice === '2' && node.key !== null) {
           const keyStr = String(node.key);
-          navigator.clipboard.writeText(keyStr);
+          copyToClipboard(keyStr);
           this.onCopyToast(`Copied key "${keyStr}"`);
         } else if (copyChoice === '3') {
-          navigator.clipboard.writeText(node.path);
+          copyToClipboard(node.path);
           this.onCopyToast(`Copied path ${node.path}`);
         }
       });
