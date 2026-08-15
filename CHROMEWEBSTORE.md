@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-12  
-**Version**: 1.1.0  
+**Last Updated**: 2026-08-15  
+**Version**: 1.3.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -12,7 +12,7 @@
 Pro JSON Viewer
 
 ### Short Description (max 132 chars)
-Fast, virtualized Manifest V3 JSON viewer with instant search, JSONPath, smart decoders (JWT/Dates), and structural diffing.
+Fast, virtualized Manifest V3 JSON viewer with instant search, JSONPath, smart decoders, table mode, and visual charts.
 
 ### Detailed Description
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
@@ -20,6 +20,8 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 **Key Features:**
 - ⚡ **High-Performance Virtualization**: Smooth 60fps windowed scrolling for large multi-megabyte JSON responses without tab freezes.
 - 🔍 **Instant Search & JSONPath**: Filter keys, values, or run complex JSONPath queries (`$.data[*].id`) with real-time text highlighting and auto-expanding match trees.
+- 📊 **Tabbed Table View**: Automatically converts arrays into interactive sortable tables with magnetic scan depth controls (1–20 levels) and context-aware sub-array cell badges.
+- 📈 **Visual Chart Dashboard**: Interactive SVG analytics dashboard featuring Donut/Pie charts, Vertical & Horizontal Bar charts, string category aggregations (*Count by Category*), label/value column pickers, Top-N filtering, and Min/Max/Avg/Sum summary cards.
 - 💡 **Smart Value Decoders**: Auto-detects and displays inline decoders for ISO dates, Unix timestamps, JWT tokens, URLs, Base64 strings, and array schema anomalies.
 - 🔀 **Structural Diff Mode**: Compare two JSON payloads side-by-side or inline to spot added, removed, or modified keys instantly.
 - 🎨 **Modern Themes**: Sleek theme preset engine (Dracula, One Dark, Monokai, Nord, GitHub Dark/Light, Slate) with instant live storage sync and quick toolbar switcher.
@@ -44,6 +46,20 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 1.3.0 (2026-08-15)
+- Added **Interactive Visual Chart View (`ChartView`)**: Zero-dependency SVG analytics dashboard auto-generating Donut/Pie and Bar charts from JSON payloads.
+- Added **Dynamic Column Pickers & Chart Type Switcher**: Interactively select Label Column, Value Column, and toggle between Donut, Vertical Bar, and Horizontal Bar charts.
+- Added **String Category Aggregations ("Count by Category")**: Group items by string fields (e.g. `status`, `type`, `department`) and plot frequency counts.
+- Added **Smart ID Field Filtering**: Excludes primary keys, timestamps, and codes from numerical chart metrics.
+- Added **Min/Max/Avg/Sum Summary Cards & Top-N Filtering**: Quick statistical highlights and item count limits for clean visual reports.
+- Added **Magnetic Scan Depth Slider for Chart View**: Smooth 1-to-20 level depth slider for discovering deeply nested chartable sub-arrays.
+
+### Version 1.2.0 (2026-08-14)
+- Added **Tabbed Data Dashboard in Table View**: Auto-discovers sub-arrays across nested levels and organizes them into tabbed tables.
+- Added **Context-Aware Sub-Array Badges**: Interactive `(View)` badges in table cells allowing one-click opening of nested array tables.
+- Added **Merged `❓ All Questions` Tab**: Combines questions across parent objects for unified analytical comparison.
+- Added **Magnetic Dot Slider**: 20-step magnetic depth selector with floating hover tooltips for configurable scanning depth.
 
 ### Version 1.1.0 (2026-08-12)
 - Added **Theme Preset Engine**: Dracula, One Dark Pro, Monokai Pro, Nord, GitHub Dark, GitHub Light, Slate Dark, and Clean Light.
