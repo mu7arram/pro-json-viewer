@@ -3,6 +3,7 @@ import { FilterMode, ViewMode } from '../shared/types';
 export interface ToolbarOptions {
   container: HTMLElement;
   currentTheme?: string;
+  statsSummary?: string;
   onThemeChange?: (theme: string) => void;
   onViewModeChange: (mode: ViewMode) => void;
   onSearchChange: (query: string, mode: FilterMode) => void;
@@ -12,6 +13,7 @@ export interface ToolbarOptions {
   onCopyAll: () => void;
   onDownload: () => void;
   onOpenDiff: () => void;
+  onOpenTools?: () => void;
   onOpenOptions: () => void;
 }
 
@@ -61,7 +63,7 @@ export class Toolbar {
         <button class="pjv-btn" id="pjv-btn-collapse-all">Collapse</button>
       </div>
 
-      <!-- Actions & Theme Quick Switcher -->
+      <!-- Actions, Tools & Theme Quick Switcher -->
       <div class="pjv-btn-group">
         <select id="pjv-toolbar-theme" title="Quick Theme Switcher" style="background:transparent; border:none; color:var(--pjv-text-muted); font-size:11px; cursor:pointer; padding:4px 6px;">
           <option value="system">🎨 System</option>
@@ -74,12 +76,15 @@ export class Toolbar {
           <option value="github-dark">🎨 GH Dark</option>
           <option value="github-light">🎨 GH Light</option>
         </select>
+        <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter">🛠️ Tools</button>
         <button class="pjv-btn" id="pjv-btn-copy" title="Copy formatted JSON">Copy</button>
         <button class="pjv-btn" id="pjv-btn-download" title="Download JSON file">Save</button>
         <button class="pjv-btn" id="pjv-btn-options" title="Extension Settings">⚙️</button>
       </div>
 
-      <!-- Privacy Badge -->
+      <!-- Payload Stats & Privacy Badge -->
+      ${opts.statsSummary ? `<div class="pjv-badge-stats" id="pjv-badge-stats" title="Click to view full payload stats & schema">${opts.statsSummary}</div>` : ''}
+
       <div class="pjv-badge-local" title="All processing occurs 100% locally in your browser. No telemetry or network calls.">
         <span>🔒</span> 100% Local
       </div>
@@ -127,6 +132,16 @@ export class Toolbar {
     this.container.querySelector('#pjv-btn-expand-all')!.addEventListener('click', () => opts.onExpandAll());
     this.container.querySelector('#pjv-btn-collapse-all')!.addEventListener('click', () => opts.onCollapseAll());
 
+    const toolsBtn = this.container.querySelector('#pjv-btn-tools');
+    if (toolsBtn && opts.onOpenTools) {
+      toolsBtn.addEventListener('click', () => opts.onOpenTools!());
+    }
+
+    const statsBadge = this.container.querySelector('#pjv-badge-stats');
+    if (statsBadge && opts.onOpenTools) {
+      statsBadge.addEventListener('click', () => opts.onOpenTools!());
+    }
+
     this.container.querySelector('#pjv-btn-copy')!.addEventListener('click', () => opts.onCopyAll());
     this.container.querySelector('#pjv-btn-download')!.addEventListener('click', () => opts.onDownload());
     this.container.querySelector('#pjv-btn-options')!.addEventListener('click', () => opts.onOpenOptions());
@@ -138,3 +153,4 @@ export class Toolbar {
     };
   }
 }
+

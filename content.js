@@ -762,12 +762,16 @@ class Toolbar {
           <option value="github-dark">🎨 GH Dark</option>
           <option value="github-light">🎨 GH Light</option>
         </select>
-        <button class="pjv-btn" id="pjv-btn-copy">Copy</button>
-        <button class="pjv-btn" id="pjv-btn-download">Save</button>
-        <button class="pjv-btn" id="pjv-btn-options">⚙️</button>
+        <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter">🛠️ Tools</button>
+        <button class="pjv-btn" id="pjv-btn-copy" title="Copy formatted JSON">Copy</button>
+        <button class="pjv-btn" id="pjv-btn-download" title="Download JSON file">Save</button>
+        <button class="pjv-btn" id="pjv-btn-options" title="Extension Settings">⚙️</button>
       </div>
 
-      <div class="pjv-badge-local">
+      <!-- Payload Stats & Privacy Badge -->
+      ${opts.statsSummary ? `<div class="pjv-badge-stats" id="pjv-badge-stats" title="Click to view full payload stats & schema">${opts.statsSummary}</div>` : ''}
+
+      <div class="pjv-badge-local" title="All processing occurs 100% locally in your browser. No telemetry or network calls.">
         <span>🔒</span> 100% Local
       </div>
     `;
@@ -813,6 +817,16 @@ class Toolbar {
     this.container.querySelector('#pjv-btn-depth-3').onclick = () => opts.onExpandDepth(3);
     this.container.querySelector('#pjv-btn-expand-all').onclick = () => opts.onExpandAll();
     this.container.querySelector('#pjv-btn-collapse-all').onclick = () => opts.onCollapseAll();
+
+    const toolsBtn = this.container.querySelector('#pjv-btn-tools');
+    if (toolsBtn && opts.onOpenTools) {
+      toolsBtn.onclick = () => opts.onOpenTools();
+    }
+
+    const statsBadge = this.container.querySelector('#pjv-badge-stats');
+    if (statsBadge && opts.onOpenTools) {
+      statsBadge.onclick = () => opts.onOpenTools();
+    }
 
     this.container.querySelector('#pjv-btn-copy').onclick = () => opts.onCopyAll();
     this.container.querySelector('#pjv-btn-download').onclick = () => opts.onDownload();
@@ -2230,6 +2244,581 @@ function openDiffModal(options) {
   };
 }
 
+// --- 8.5. DEVELOPER TOOLS & SCHEMA GENERATOR SUITE ---
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatByteSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function analyzePayloadStats(rawText, data, parseTimeMs = 0) {
+  const byteSize = new Blob([rawText || JSON.stringify(data)]).size;
+  let totalKeys = 0;
+  let arrayCount = 0;
+  let maxDepth = 0;
+
+  function traverse(obj, depth = 1) {
+    if (depth > maxDepth) maxDepth = depth;
+    if (!obj || typeof obj !== 'object') return;
+
+    if (Array.isArray(obj)) {
+      arrayCount++;
+      obj.forEach((item) => traverse(item, depth + 1));
+    } else {
+      const keys = Object.keys(obj);
+      totalKeys += keys.length;
+      keys.forEach((k) => traverse(obj[k], depth + 1));
+    }
+  }
+
+  traverse(data, 1);
+
+  return {
+    byteSize,
+    formattedSize: formatByteSize(byteSize),
+    totalKeys,
+    arrayCount,
+    maxDepth,
+    parseTimeMs: Math.round(parseTimeMs * 100) / 100
+  };
+}
+
+function toPascalCase(str) {
+  return String(str)
+    .replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
+    .replace(/^[^a-zA-Z]+/, '')
+    .replace(/^[a-z]/, (c) => c.toUpperCase()) || 'Item';
+}
+
+function sanitizeIdentifier(str) {
+  if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(str)) {
+    return str;
+  }
+  return JSON.stringify(str);
+}
+
+function generateTypeScript(data, rootName = 'RootObject') {
+  if (data === null || data === undefined) return `export type ${rootName} = null;`;
+  if (typeof data !== 'object') return `export type ${rootName} = ${typeof data};`;
+
+  const interfaces = new Map();
+
+  function getTypeName(key) {
+    let name = toPascalCase(key);
+    if (!name) name = 'NestedObject';
+    return name;
+  }
+
+  function inferType(val, propertyKey = 'item') {
+    if (val === null) return 'null';
+    if (val === undefined) return 'undefined';
+
+    const type = typeof val;
+    if (type === 'string') return 'string';
+    if (type === 'number') return 'number';
+    if (type === 'boolean') return 'boolean';
+
+    if (Array.isArray(val)) {
+      if (val.length === 0) return 'any[]';
+      const elemTypes = new Set();
+      val.forEach((elem) => elemTypes.add(inferType(elem, propertyKey)));
+      const combined = Array.from(elemTypes).join(' | ');
+      return elemTypes.size > 1 ? `(${combined})[]` : `${combined}[]`;
+    }
+
+    const interfaceName = getTypeName(propertyKey);
+    buildInterface(val, interfaceName);
+    return interfaceName;
+  }
+
+  function buildInterface(obj, name) {
+    if (interfaces.has(name)) return;
+    interfaces.set(name, '');
+
+    const lines = [];
+    lines.push(`export interface ${name} {`);
+
+    const keys = Object.keys(obj);
+    if (keys.length === 0) {
+      lines.push('  [key: string]: any;');
+    } else {
+      keys.forEach((key) => {
+        const val = obj[key];
+        const fieldName = sanitizeIdentifier(key);
+        const inferred = inferType(val, key);
+        lines.push(`  ${fieldName}: ${inferred};`);
+      });
+    }
+
+    lines.push('}');
+    interfaces.set(name, lines.join('\n'));
+  }
+
+  if (Array.isArray(data)) {
+    const itemType = inferType(data[0], `${rootName}Item`);
+    const output = [];
+    interfaces.forEach((code) => output.push(code));
+    output.push(`export type ${rootName} = ${itemType}[];`);
+    return output.join('\n\n');
+  }
+
+  buildInterface(data, rootName);
+  const result = [];
+  interfaces.forEach((code) => result.push(code));
+  return result.join('\n\n');
+}
+
+function generateZodSchema(data, rootName = 'rootSchema') {
+  if (data === null || data === undefined) return `import { z } from 'zod';\n\nexport const ${rootName} = z.null();`;
+  if (typeof data !== 'object') return `import { z } from 'zod';\n\nexport const ${rootName} = z.${typeof data}();`;
+
+  const schemas = new Map();
+
+  function getSchemaName(key) {
+    const pascal = toPascalCase(key);
+    return `${pascal.charAt(0).toLowerCase() + pascal.slice(1)}Schema`;
+  }
+
+  function inferZod(val, propertyKey = 'item') {
+    if (val === null) return 'z.null()';
+    if (val === undefined) return 'z.undefined()';
+
+    const type = typeof val;
+    if (type === 'string') return 'z.string()';
+    if (type === 'number') return 'z.number()';
+    if (type === 'boolean') return 'z.boolean()';
+
+    if (Array.isArray(val)) {
+      if (val.length === 0) return 'z.array(z.any())';
+      const inner = inferZod(val[0], propertyKey);
+      return `z.array(${inner})`;
+    }
+
+    const schemaName = getSchemaName(propertyKey);
+    buildZodObject(val, schemaName);
+    return schemaName;
+  }
+
+  function buildZodObject(obj, name) {
+    if (schemas.has(name)) return;
+    schemas.set(name, '');
+
+    const lines = [];
+    lines.push(`export const ${name} = z.object({`);
+
+    const keys = Object.keys(obj);
+    keys.forEach((key) => {
+      const val = obj[key];
+      const fieldName = sanitizeIdentifier(key);
+      const inferred = inferZod(val, key);
+      lines.push(`  ${fieldName}: ${inferred},`);
+    });
+
+    lines.push('});');
+    schemas.set(name, lines.join('\n'));
+  }
+
+  if (Array.isArray(data)) {
+    const itemSchema = inferZod(data[0], `${rootName}Item`);
+    const output = ["import { z } from 'zod';\n"];
+    schemas.forEach((code) => output.push(code));
+    output.push(`export const ${rootName} = z.array(${itemSchema});`);
+    return output.join('\n\n');
+  }
+
+  buildZodObject(data, rootName);
+  const result = ["import { z } from 'zod';\n"];
+  schemas.forEach((code) => result.push(code));
+  return result.join('\n\n');
+}
+
+function jsonToYaml(data, indentLevel = 0) {
+  const indent = '  '.repeat(indentLevel);
+
+  if (data === null) return 'null';
+  if (data === undefined) return '~';
+  if (typeof data === 'boolean') return data ? 'true' : 'false';
+  if (typeof data === 'number') return String(data);
+
+  if (typeof data === 'string') {
+    if (data.includes('\n')) {
+      return `|\n${data.split('\n').map((line) => `${indent}  ${line}`).join('\n')}`;
+    }
+    if (/[:#\[\]{},&*?|<>=!%@`]|^[0-9]/.test(data) || data === 'true' || data === 'false' || data === 'null') {
+      return JSON.stringify(data);
+    }
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return '[]';
+    return data.map((item) => {
+      if (typeof item === 'object' && item !== null) {
+        const itemYaml = jsonToYaml(item, indentLevel + 1).trimStart();
+        return `${indent}- ${itemYaml}`;
+      }
+      return `${indent}- ${jsonToYaml(item, indentLevel + 1)}`;
+    }).join('\n');
+  }
+
+  if (typeof data === 'object') {
+    const keys = Object.keys(data);
+    if (keys.length === 0) return '{}';
+
+    return keys.map((key) => {
+      const val = data[key];
+      const safeKey = /[:#\[\]{},&*?|<>=!%@`\s]/.test(key) ? JSON.stringify(key) : key;
+
+      if (typeof val === 'object' && val !== null && (Array.isArray(val) ? val.length > 0 : Object.keys(val).length > 0)) {
+        return `${indent}${safeKey}:\n${jsonToYaml(val, indentLevel + 1)}`;
+      }
+      return `${indent}${safeKey}: ${jsonToYaml(val, indentLevel + 1)}`;
+    }).join('\n');
+  }
+
+  return String(data);
+}
+
+function jsonToCsv(data) {
+  if (!data) return '';
+
+  function findPrimaryArray(obj) {
+    if (Array.isArray(obj)) return obj;
+    if (typeof obj === 'object' && obj !== null) {
+      for (const k of Object.keys(obj)) {
+        if (Array.isArray(obj[k]) && obj[k].length > 0) {
+          return obj[k];
+        }
+      }
+      for (const k of Object.keys(obj)) {
+        if (typeof obj[k] === 'object' && obj[k] !== null) {
+          const nested = findPrimaryArray(obj[k]);
+          if (nested) return nested;
+        }
+      }
+    }
+    return null;
+  }
+
+  function escapeCsvCell(val) {
+    if (val === null || val === undefined) return '""';
+    let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+      str = `"${str.replace(/"/g, '""')}"`;
+    } else {
+      str = `"${str}"`;
+    }
+    return str;
+  }
+
+  const primaryArray = findPrimaryArray(data);
+
+  if (primaryArray && primaryArray.length > 0) {
+    const headerSet = new Set();
+    primaryArray.forEach((item) => {
+      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+        Object.keys(item).forEach((k) => headerSet.add(k));
+      } else {
+        headerSet.add('value');
+      }
+    });
+
+    const headers = Array.from(headerSet);
+    const rows = [headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(',')];
+
+    primaryArray.forEach((item) => {
+      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+        const row = headers.map((h) => escapeCsvCell(item[h]));
+        rows.push(row.join(','));
+      } else {
+        rows.push(escapeCsvCell(item));
+      }
+    });
+
+    return rows.join('\n');
+  }
+
+  if (typeof data === 'object' && data !== null) {
+    const rows = ['"Key","Value"'];
+    Object.keys(data).forEach((key) => {
+      rows.push(`${escapeCsvCell(key)},${escapeCsvCell(data[key])}`);
+    });
+    return rows.join('\n');
+  }
+
+  return escapeCsvCell(data);
+}
+
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: `${mimeType};charset=utf-8;` });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function openToolsModal(options) {
+  const { data, rawText = '', parseTimeMs = 0, onToast } = options;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'pjv-modal-backdrop';
+
+  const modal = document.createElement('div');
+  modal.className = 'pjv-modal pjv-tools-modal';
+
+  const stats = analyzePayloadStats(rawText, data, parseTimeMs);
+  let activeTab = 'ts';
+
+  const renderContent = () => {
+    modal.innerHTML = `
+      <div class="pjv-tools-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">🛠️</span>
+          <h3 style="margin:0; font-size:15px; color:var(--pjv-syntax-key);">Developer Tools Suite</h3>
+        </div>
+        <button id="pjv-tools-close" class="pjv-btn" style="padding:4px 8px;">✕</button>
+      </div>
+
+      <div class="pjv-tools-nav">
+        <button class="pjv-tools-tab-btn ${activeTab === 'ts' ? 'active' : ''}" data-tab="ts">📘 TypeScript</button>
+        <button class="pjv-tools-tab-btn ${activeTab === 'zod' ? 'active' : ''}" data-tab="zod">📙 Zod Schema</button>
+        <button class="pjv-tools-tab-btn ${activeTab === 'yaml' ? 'active' : ''}" data-tab="yaml">📗 YAML</button>
+        <button class="pjv-tools-tab-btn ${activeTab === 'export' ? 'active' : ''}" data-tab="export">💾 Export</button>
+        <button class="pjv-tools-tab-btn ${activeTab === 'analytics' ? 'active' : ''}" data-tab="analytics">📊 Analytics</button>
+      </div>
+
+      <div id="pjv-tools-body" class="pjv-tools-body"></div>
+    `;
+
+    const bodyEl = modal.querySelector('#pjv-tools-body');
+    const closeBtn = modal.querySelector('#pjv-tools-close');
+    closeBtn.onclick = () => backdrop.remove();
+
+    const tabBtns = modal.querySelectorAll('.pjv-tools-tab-btn');
+    tabBtns.forEach((btn) => {
+      btn.onclick = () => {
+        activeTab = btn.dataset.tab;
+        renderContent();
+      };
+    });
+
+    if (activeTab === 'ts') {
+      const tsCode = generateTypeScript(data, 'RootObject');
+      bodyEl.innerHTML = `
+        <div class="pjv-tools-panel">
+          <div class="pjv-tools-toolbar">
+            <span class="pjv-tools-hint">Auto-generated TypeScript interfaces with inferred types:</span>
+            <div style="display:flex; gap:8px;">
+              <button id="pjv-btn-copy-ts" class="pjv-btn active">📋 Copy TypeScript</button>
+              <button id="pjv-btn-dl-ts" class="pjv-btn">📥 Download .d.ts</button>
+            </div>
+          </div>
+          <textarea readonly class="pjv-code-preview">${escapeHtml(tsCode)}</textarea>
+        </div>
+      `;
+
+      bodyEl.querySelector('#pjv-btn-copy-ts').onclick = () => {
+        copyToClipboard(tsCode);
+        if (onToast) onToast('Copied TypeScript interfaces to clipboard!');
+      };
+
+      bodyEl.querySelector('#pjv-btn-dl-ts').onclick = () => {
+        downloadFile(`schema-${Date.now()}.d.ts`, tsCode, 'application/typescript');
+        if (onToast) onToast('Downloaded TypeScript file!');
+      };
+
+    } else if (activeTab === 'zod') {
+      const zodCode = generateZodSchema(data, 'rootSchema');
+      bodyEl.innerHTML = `
+        <div class="pjv-tools-panel">
+          <div class="pjv-tools-toolbar">
+            <span class="pjv-tools-hint">Auto-generated Zod validation schema code:</span>
+            <div style="display:flex; gap:8px;">
+              <button id="pjv-btn-copy-zod" class="pjv-btn active">📋 Copy Zod Schema</button>
+              <button id="pjv-btn-dl-zod" class="pjv-btn">📥 Download .ts</button>
+            </div>
+          </div>
+          <textarea readonly class="pjv-code-preview">${escapeHtml(zodCode)}</textarea>
+        </div>
+      `;
+
+      bodyEl.querySelector('#pjv-btn-copy-zod').onclick = () => {
+        copyToClipboard(zodCode);
+        if (onToast) onToast('Copied Zod schema to clipboard!');
+      };
+
+      bodyEl.querySelector('#pjv-btn-dl-zod').onclick = () => {
+        downloadFile(`zod-schema-${Date.now()}.ts`, zodCode, 'application/typescript');
+        if (onToast) onToast('Downloaded Zod schema file!');
+      };
+
+    } else if (activeTab === 'yaml') {
+      const yamlCode = jsonToYaml(data);
+      bodyEl.innerHTML = `
+        <div class="pjv-tools-panel">
+          <div class="pjv-tools-toolbar">
+            <span class="pjv-tools-hint">Converted clean YAML representation:</span>
+            <div style="display:flex; gap:8px;">
+              <button id="pjv-btn-copy-yaml" class="pjv-btn active">📋 Copy YAML</button>
+              <button id="pjv-btn-dl-yaml" class="pjv-btn">📥 Download .yaml</button>
+            </div>
+          </div>
+          <textarea readonly class="pjv-code-preview">${escapeHtml(yamlCode)}</textarea>
+        </div>
+      `;
+
+      bodyEl.querySelector('#pjv-btn-copy-yaml').onclick = () => {
+        copyToClipboard(yamlCode);
+        if (onToast) onToast('Copied YAML to clipboard!');
+      };
+
+      bodyEl.querySelector('#pjv-btn-dl-yaml').onclick = () => {
+        downloadFile(`payload-${Date.now()}.yaml`, yamlCode, 'text/yaml');
+        if (onToast) onToast('Downloaded YAML file!');
+      };
+
+    } else if (activeTab === 'export') {
+      bodyEl.innerHTML = `
+        <div class="pjv-tools-panel" style="gap:16px;">
+          <span class="pjv-tools-hint">Export payload into multiple developer-ready formats:</span>
+          <div class="pjv-export-grid">
+            <div class="pjv-export-card">
+              <div class="pjv-export-title">📄 Formatted JSON</div>
+              <div class="pjv-export-desc">Standard 2-space indented pretty-printed JSON file.</div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="pjv-dl-json-pretty" class="pjv-btn active">📥 Download .json</button>
+                <button id="pjv-copy-json-pretty" class="pjv-btn">📋 Copy</button>
+              </div>
+            </div>
+
+            <div class="pjv-export-card">
+              <div class="pjv-export-title">⚡ Minified JSON</div>
+              <div class="pjv-export-desc">Compact single-line JSON with whitespace stripped.</div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="pjv-dl-json-min" class="pjv-btn active">📥 Download .min.json</button>
+                <button id="pjv-copy-json-min" class="pjv-btn">📋 Copy</button>
+              </div>
+            </div>
+
+            <div class="pjv-export-card">
+              <div class="pjv-export-title">📗 Clean YAML</div>
+              <div class="pjv-export-desc">Clean human-readable YAML document for config/APIs.</div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="pjv-dl-yaml-exp" class="pjv-btn active">📥 Download .yaml</button>
+                <button id="pjv-copy-yaml-exp" class="pjv-btn">📋 Copy</button>
+              </div>
+            </div>
+
+            <div class="pjv-export-card">
+              <div class="pjv-export-title">📊 CSV Spreadsheet</div>
+              <div class="pjv-export-desc">RFC 4180 CSV spreadsheet table from primary array data.</div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="pjv-dl-csv-exp" class="pjv-btn active">📥 Download .csv</button>
+                <button id="pjv-copy-csv-exp" class="pjv-btn">📋 Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const prettyJson = JSON.stringify(data, null, 2);
+      const minJson = JSON.stringify(data);
+      const yamlStr = jsonToYaml(data);
+      const csvStr = jsonToCsv(data);
+
+      bodyEl.querySelector('#pjv-dl-json-pretty').onclick = () => {
+        downloadFile(`payload-pretty-${Date.now()}.json`, prettyJson, 'application/json');
+        if (onToast) onToast('Downloaded formatted JSON!');
+      };
+      bodyEl.querySelector('#pjv-copy-json-pretty').onclick = () => {
+        copyToClipboard(prettyJson);
+        if (onToast) onToast('Copied formatted JSON!');
+      };
+
+      bodyEl.querySelector('#pjv-dl-json-min').onclick = () => {
+        downloadFile(`payload-min-${Date.now()}.json`, minJson, 'application/json');
+        if (onToast) onToast('Downloaded minified JSON!');
+      };
+      bodyEl.querySelector('#pjv-copy-json-min').onclick = () => {
+        copyToClipboard(minJson);
+        if (onToast) onToast('Copied minified JSON!');
+      };
+
+      bodyEl.querySelector('#pjv-dl-yaml-exp').onclick = () => {
+        downloadFile(`payload-${Date.now()}.yaml`, yamlStr, 'text/yaml');
+        if (onToast) onToast('Downloaded YAML file!');
+      };
+      bodyEl.querySelector('#pjv-copy-yaml-exp').onclick = () => {
+        copyToClipboard(yamlStr);
+        if (onToast) onToast('Copied YAML!');
+      };
+
+      bodyEl.querySelector('#pjv-dl-csv-exp').onclick = () => {
+        downloadFile(`payload-${Date.now()}.csv`, csvStr, 'text/csv');
+        if (onToast) onToast('Downloaded CSV spreadsheet!');
+      };
+      bodyEl.querySelector('#pjv-copy-csv-exp').onclick = () => {
+        copyToClipboard(csvStr);
+        if (onToast) onToast('Copied CSV to clipboard!');
+      };
+
+    } else if (activeTab === 'analytics') {
+      bodyEl.innerHTML = `
+        <div class="pjv-tools-panel">
+          <span class="pjv-tools-hint">Real-time analytical metrics for the current payload:</span>
+          <div class="pjv-analytics-grid">
+            <div class="pjv-analytics-card">
+              <span class="analytics-label">📦 Payload Size</span>
+              <span class="analytics-val">${stats.formattedSize}</span>
+              <span class="analytics-sub">${stats.byteSize.toLocaleString()} bytes</span>
+            </div>
+
+            <div class="pjv-analytics-card">
+              <span class="analytics-label">🔑 Total Keys</span>
+              <span class="analytics-val">${stats.totalKeys.toLocaleString()}</span>
+              <span class="analytics-sub">Across all objects</span>
+            </div>
+
+            <div class="pjv-analytics-card">
+              <span class="analytics-label">📋 Array Count</span>
+              <span class="analytics-val">${stats.arrayCount.toLocaleString()}</span>
+              <span class="analytics-sub">Lists and collections</span>
+            </div>
+
+            <div class="pjv-analytics-card">
+              <span class="analytics-label">📏 Max Nesting Depth</span>
+              <span class="analytics-val">Level ${stats.maxDepth}</span>
+              <span class="analytics-sub">Maximum hierarchy</span>
+            </div>
+
+            <div class="pjv-analytics-card">
+              <span class="analytics-label">⚡ Deserialization Time</span>
+              <span class="analytics-val">${stats.parseTimeMs} ms</span>
+              <span class="analytics-sub">Engine benchmark</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  };
+
+  renderContent();
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+}
+
 // --- 9. APP INITIALIZATION & INJECTION ---
 const DEFAULT_SETTINGS = {
   theme: 'system',
@@ -2269,7 +2858,13 @@ window.launchProJsonScratchpad = async (container) => {
 };
 
 function renderApp(mountTarget, rawJsonText) {
+  const startTime = performance.now();
   let jsonObject = parseJson(rawJsonText);
+  const parseTimeMs = performance.now() - startTime;
+
+  const payloadStats = analyzePayloadStats(rawJsonText, jsonObject, parseTimeMs);
+  const statsSummary = `📦 ${payloadStats.formattedSize} • D${payloadStats.maxDepth} • ${payloadStats.totalKeys} keys`;
+
   getSettings().then((settings) => {
     document.documentElement.setAttribute('data-theme', settings.theme === 'system'
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -2342,6 +2937,7 @@ function renderApp(mountTarget, rawJsonText) {
     new Toolbar({
       container: toolbarContainer,
       currentTheme: settings.theme,
+      statsSummary,
       onThemeChange: (newTheme) => {
         document.documentElement.setAttribute('data-theme', newTheme === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -2401,13 +2997,7 @@ function renderApp(mountTarget, rawJsonText) {
         showToast('Copied JSON!');
       },
       onDownload: () => {
-        const blob = new Blob([JSON.stringify(jsonObject, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `pro-json-${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadFile(`pro-json-${Date.now()}.json`, JSON.stringify(jsonObject, null, 2), 'application/json');
         showToast('Saved JSON file!');
       },
       onOpenDiff: () => {
@@ -2418,6 +3008,14 @@ function renderApp(mountTarget, rawJsonText) {
             treeView.setNodes(diffNodes);
             showToast(`Diff stats: +${stats.added} -${stats.removed} ~${stats.modified}`);
           }
+        });
+      },
+      onOpenTools: () => {
+        openToolsModal({
+          data: jsonObject,
+          rawText: rawJsonText,
+          parseTimeMs,
+          onToast: showToast
         });
       },
       onOpenOptions: () => {
