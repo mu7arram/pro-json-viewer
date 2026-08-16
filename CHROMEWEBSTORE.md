@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-15  
-**Version**: 1.3.0  
+**Last Updated**: 2026-08-16  
+**Version**: 1.4.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -12,13 +12,16 @@
 Pro JSON Viewer
 
 ### Short Description (max 132 chars)
-Fast, virtualized Manifest V3 JSON viewer with instant search, JSONPath, smart decoders, table mode, and visual charts.
+Fast, virtualized Manifest V3 JSON viewer with instant search, TypeScript/Zod schema generator, table mode, and visual charts.
 
 ### Detailed Description
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
 
 **Key Features:**
 - ⚡ **High-Performance Virtualization**: Smooth 60fps windowed scrolling for large multi-megabyte JSON responses without tab freezes.
+- 🛠️ **Developer Tools Suite**: One-click TypeScript interface & Zod validation schema generator with copy and `.d.ts` / `.ts` download options.
+- 💾 **Multi-Format Exporter**: Export JSON payloads into RFC 4180 CSV spreadsheets, clean YAML documents, and formatted or minified JSON files.
+- 📊 **Real-Time Payload Stats Toolbar Badge**: Instant metrics displaying payload size, max nesting depth, total keys, and deserialization benchmarks.
 - 🔍 **Instant Search & JSONPath**: Filter keys, values, or run complex JSONPath queries (`$.data[*].id`) with real-time text highlighting and auto-expanding match trees.
 - 📊 **Tabbed Table View**: Automatically converts arrays into interactive sortable tables with magnetic scan depth controls (1–20 levels) and context-aware sub-array cell badges.
 - 📈 **Visual Chart Dashboard**: Interactive SVG analytics dashboard featuring Donut/Pie charts, Vertical & Horizontal Bar charts, string category aggregations (*Count by Category*), label/value column pickers, Top-N filtering, and Min/Max/Avg/Sum summary cards.
@@ -46,6 +49,13 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 1.4.0 (2026-08-16)
+- Added **Developer Tools Suite (`ToolsModal`)**: Dedicated modal offering TypeScript interface generation, Zod validation schema generation, YAML/CSV conversion, and payload analytics.
+- Added **TypeScript Interface Generator**: Incurs property types, handles nested objects and arrays, and outputs clean `.d.ts` definitions.
+- Added **Zod Validation Schema Generator**: Generates valid `zod` validation schemas with nullable and optional modifiers.
+- Added **Multi-Format Exporter**: One-click copy and downloads for RFC 4180 CSV tables, clean YAML, formatted JSON, and minified JSON.
+- Added **Payload Stats Toolbar Badge**: Real-time toolbar indicator displaying payload byte size, maximum nesting hierarchy depth, total keys, and parse benchmarks.
 
 ### Version 1.3.0 (2026-08-15)
 - Added **Interactive Visual Chart View (`ChartView`)**: Zero-dependency SVG analytics dashboard auto-generating Donut/Pie and Bar charts from JSON payloads.
