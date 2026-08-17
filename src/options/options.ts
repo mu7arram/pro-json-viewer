@@ -6,6 +6,7 @@ import { FilterMode, FlatNode, ViewMode } from '../shared/types';
 import { TreeView } from '../ui/tree-view';
 import { TableView } from '../ui/table-view';
 import { ChartView } from '../ui/chart-view';
+import { DiagramView } from '../ui/diagram-view';
 import { Toolbar } from '../ui/toolbar';
 import { openDiffModal } from '../ui/diff-view';
 import '../ui/styles/theme.css';
@@ -104,11 +105,15 @@ async function launchScratchpad(container: HTMLElement) {
   const chartContainer = document.createElement('div');
   chartContainer.style.display = 'none';
 
+  const diagramContainer = document.createElement('div');
+  diagramContainer.style.display = 'none';
+
   root.appendChild(toolbarContainer);
   root.appendChild(viewportContainer);
   root.appendChild(rawContainer);
   root.appendChild(tableContainer);
   root.appendChild(chartContainer);
+  root.appendChild(diagramContainer);
   container.appendChild(root);
 
   // Toast
@@ -163,6 +168,7 @@ async function launchScratchpad(container: HTMLElement) {
       rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
       tableContainer.style.display = mode === 'table' ? 'block' : 'none';
       chartContainer.style.display = mode === 'chart' ? 'block' : 'none';
+      diagramContainer.style.display = mode === 'diagram' ? 'block' : 'none';
 
       if (mode === 'table') {
         tableContainer.innerHTML = '';
@@ -177,6 +183,14 @@ async function launchScratchpad(container: HTMLElement) {
         new ChartView({
           container: chartContainer,
           data: jsonObject
+        });
+      } else if (mode === 'diagram') {
+        diagramContainer.innerHTML = '';
+        new DiagramView({
+          container: diagramContainer,
+          data: jsonObject,
+          defaultDepth: settings.defaultExpandDepth || 2,
+          onToast: showToast
         });
       }
     },
