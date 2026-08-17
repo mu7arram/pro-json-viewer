@@ -73,5 +73,5 @@ export const DEFAULT_SETTINGS: UserSettings = {
   autoActivateOnJson: true
 };
 
-export type ViewMode = 'tree' | 'raw' | 'diff' | 'table' | 'chart';
+export type ViewMode = 'tree' | 'raw' | 'diff' | 'table' | 'chart' | 'diagram';
 export type FilterMode = 'text' | 'regex' | 'jsonpath';
