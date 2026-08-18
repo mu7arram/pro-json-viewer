@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-17  
-**Version**: 1.5.0  
+**Last Updated**: 2026-08-18  
+**Version**: 1.6.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -12,12 +12,14 @@
 Pro JSON Viewer
 
 ### Short Description (max 132 chars)
-Fast, virtualized Manifest V3 JSON viewer with diagram graph, search, TypeScript/Zod generator, table mode, and visual charts.
+Fast, virtualized Manifest V3 JSON viewer with diagram graph, keyboard shortcuts suite, chart exports, TypeScript generator, and diff.
 
 ### Detailed Description
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
 
 **Key Features:**
+- ⌨️ **Keyboard Shortcuts & Power-User Suite**: Instant hotkeys for view switching (`Alt/Option + 1..6`), search focus (`/` or `Cmd/Ctrl+F`), tree expansion (`e`/`c`), developer tools (`t`), and interactive cheatsheet modal (`?`).
+- 📷 **Visual Chart Image Exporters**: Export Donut, Vertical Bar, and Horizontal Bar charts into vector SVG, high-resolution 2x Retina PNG, or direct clipboard copy for instant sharing.
 - 🗺️ **Interactive Diagram & Hierarchy Graph**: Visual graph explorer with zoom, pan, depth-based expansion, search filtering, orientation toggle, and pure SVG / high-resolution PNG exports.
 - ⚡ **High-Performance Virtualization**: Smooth 60fps windowed scrolling for large multi-megabyte JSON responses without tab freezes.
 - 🛠️ **Developer Tools Suite**: One-click TypeScript interface & Zod validation schema generator with copy and `.d.ts` / `.ts` download options.
@@ -50,6 +52,11 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 1.6.0 (2026-08-18)
+- Added **Keyboard Shortcuts & Power-User Suite (`KeyboardShortcuts`)**: Full keyboard navigation across all views (`Alt/Option + 1..6`), instant search focus (`/` or `Cmd/Ctrl+F`), tree expansion (`e`/`c`), dev tools (`t`), and interactive cheatsheet modal (`?`). Full macOS `Option` key compatibility.
+- Added **Chart View Vector SVG & High-Res PNG Exporters**: Download visual charts as standalone vector SVG or high-resolution PNG image files with summary stats and styled backgrounds.
+- Added **Chart Clipboard Copy**: Instant one-click image copy (`📋 Copy`) for pasting directly into Jira, Slack, GitHub, or documentation.
 
 ### Version 1.5.0 (2026-08-17)
 - Added **Interactive Diagram View (`DiagramView`)**: Visual hierarchy graph for exploring complex JSON relationships.

@@ -1,6 +1,6 @@
 {
   "name": "pro-json-viewer",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Fast, virtualized, feature-rich Manifest V3 JSON viewer extension with search, JSONPath, smart decoders, and diffing.",
   "type": "module",
   "scripts": {
