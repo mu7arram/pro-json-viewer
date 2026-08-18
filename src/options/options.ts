@@ -9,6 +9,7 @@ import { ChartView } from '../ui/chart-view';
 import { DiagramView } from '../ui/diagram-view';
 import { Toolbar } from '../ui/toolbar';
 import { openDiffModal } from '../ui/diff-view';
+import { openShortcutsModal, registerKeyboardShortcuts } from '../ui/keyboard-shortcuts';
 import '../ui/styles/theme.css';
 
 async function initOptionsPage() {
@@ -154,7 +155,7 @@ async function launchScratchpad(container: HTMLElement) {
     treeView.setNodes(currentNodes, matchedIds);
   };
 
-  new Toolbar({
+  const toolbar = new Toolbar({
     container: toolbarContainer,
     currentTheme: settings.theme,
     onThemeChange: async (newTheme) => {
@@ -182,7 +183,8 @@ async function launchScratchpad(container: HTMLElement) {
         chartContainer.innerHTML = '';
         new ChartView({
           container: chartContainer,
-          data: jsonObject
+          data: jsonObject,
+          onToast: showToast
         });
       } else if (mode === 'diagram') {
         diagramContainer.innerHTML = '';
@@ -238,9 +240,44 @@ async function launchScratchpad(container: HTMLElement) {
         }
       });
     },
+    onOpenShortcuts: () => {
+      openShortcutsModal();
+    },
     onOpenOptions: () => {
       window.location.hash = '';
       window.location.reload();
+    }
+  });
+
+  // Global Keyboard Shortcuts
+  registerKeyboardShortcuts({
+    onSwitchView: (mode) => {
+      toolbar.setViewMode(mode);
+    },
+    onFocusSearch: () => {
+      toolbar.focusSearch();
+    },
+    onExpandAll: () => {
+      expandedStateMap.clear();
+      currentNodes = buildFlatNodes(jsonObject, 100, expandedStateMap);
+      applyRender();
+      showToast('Expanded All');
+    },
+    onCollapseAll: () => {
+      expandedStateMap.clear();
+      currentNodes = buildFlatNodes(jsonObject, 0, expandedStateMap);
+      applyRender();
+      showToast('Collapsed All');
+    },
+    onOpenDiff: () => {
+      openDiffModal({
+        primaryData: jsonObject,
+        onDiffReady: (diffNodes, stats) => {
+          currentNodes = diffNodes;
+          treeView.setNodes(diffNodes);
+          showToast(`Diff Applied: +${stats.added} -${stats.removed} ~${stats.modified}`);
+        }
+      });
     }
   });
 

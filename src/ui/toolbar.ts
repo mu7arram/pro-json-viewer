@@ -14,15 +14,31 @@ export interface ToolbarOptions {
   onDownload: () => void;
   onOpenDiff: () => void;
   onOpenTools?: () => void;
+  onOpenShortcuts?: () => void;
   onOpenOptions: () => void;
 }
 
 export class Toolbar {
   private container: HTMLElement;
+  private searchInput: HTMLInputElement | null = null;
+  private setViewFn: ((mode: ViewMode) => void) | null = null;
 
   constructor(options: ToolbarOptions) {
     this.container = options.container;
     this.render(options);
+  }
+
+  public focusSearch() {
+    if (this.searchInput) {
+      this.searchInput.focus();
+      this.searchInput.select();
+    }
+  }
+
+  public setViewMode(mode: ViewMode) {
+    if (this.setViewFn) {
+      this.setViewFn(mode);
+    }
   }
 
   private render(opts: ToolbarOptions) {
@@ -37,17 +53,17 @@ export class Toolbar {
 
       <!-- View Mode Buttons -->
       <div class="pjv-btn-group">
-        <button class="pjv-btn active" id="pjv-btn-tree">Tree</button>
-        <button class="pjv-btn" id="pjv-btn-table">Table</button>
-        <button class="pjv-btn" id="pjv-btn-chart">Chart 📊</button>
-        <button class="pjv-btn" id="pjv-btn-diagram">Diagram 🗺️</button>
-        <button class="pjv-btn" id="pjv-btn-raw">Raw</button>
-        <button class="pjv-btn" id="pjv-btn-diff">Diff</button>
+        <button class="pjv-btn active" id="pjv-btn-tree" title="Tree View (Alt+1)">Tree</button>
+        <button class="pjv-btn" id="pjv-btn-table" title="Table View (Alt+2)">Table</button>
+        <button class="pjv-btn" id="pjv-btn-chart" title="Chart View (Alt+3)">Chart 📊</button>
+        <button class="pjv-btn" id="pjv-btn-diagram" title="Diagram View (Alt+4)">Diagram 🗺️</button>
+        <button class="pjv-btn" id="pjv-btn-raw" title="Raw View (Alt+5)">Raw</button>
+        <button class="pjv-btn" id="pjv-btn-diff" title="Diff Mode (Alt+6)">Diff</button>
       </div>
 
       <!-- Search Input & Mode -->
       <div class="pjv-search-box">
-        <input type="text" id="pjv-search-input" placeholder="Search keys, values, or JSONPath (e.g. $.users[0])..." />
+        <input type="text" id="pjv-search-input" placeholder="Search keys, values, or JSONPath (e.g. $.users[0])... [/]" />
         <select id="pjv-filter-mode" style="background:transparent; border:none; color:var(--pjv-text-muted); font-size:11px; cursor:pointer;">
           <option value="text">Text</option>
           <option value="regex">Regex</option>
@@ -60,8 +76,8 @@ export class Toolbar {
         <button class="pjv-btn" id="pjv-btn-depth-1">D1</button>
         <button class="pjv-btn" id="pjv-btn-depth-2">D2</button>
         <button class="pjv-btn" id="pjv-btn-depth-3">D3</button>
-        <button class="pjv-btn" id="pjv-btn-expand-all">Expand</button>
-        <button class="pjv-btn" id="pjv-btn-collapse-all">Collapse</button>
+        <button class="pjv-btn" id="pjv-btn-expand-all" title="Expand All (e)">Expand</button>
+        <button class="pjv-btn" id="pjv-btn-collapse-all" title="Collapse All (c)">Collapse</button>
       </div>
 
       <!-- Actions, Tools & Theme Quick Switcher -->
@@ -77,7 +93,8 @@ export class Toolbar {
           <option value="github-dark">🎨 GH Dark</option>
           <option value="github-light">🎨 GH Light</option>
         </select>
-        <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter">🛠️ Tools</button>
+        <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter (t)">🛠️ Tools</button>
+        <button class="pjv-btn" id="pjv-btn-shortcuts" title="Keyboard Shortcuts Cheatsheet (?)">⌨️</button>
         <button class="pjv-btn" id="pjv-btn-copy" title="Copy formatted JSON">Copy</button>
         <button class="pjv-btn" id="pjv-btn-download" title="Download JSON file">Save</button>
         <button class="pjv-btn" id="pjv-btn-options" title="Extension Settings">⚙️</button>
@@ -109,6 +126,7 @@ export class Toolbar {
       if (mode === 'diff') diffBtn.classList.add('active');
       opts.onViewModeChange(mode);
     };
+    this.setViewFn = setView;
 
     treeBtn.onclick = () => setView('tree');
     tableBtn.onclick = () => setView('table');
@@ -120,14 +138,16 @@ export class Toolbar {
       opts.onOpenDiff();
     };
 
-    const searchInput = this.container.querySelector('#pjv-search-input') as HTMLInputElement;
+    this.searchInput = this.container.querySelector('#pjv-search-input') as HTMLInputElement;
     const filterSelect = this.container.querySelector('#pjv-filter-mode') as HTMLSelectElement;
 
     const emitSearch = () => {
-      opts.onSearchChange(searchInput.value, filterSelect.value as FilterMode);
+      if (this.searchInput) {
+        opts.onSearchChange(this.searchInput.value, filterSelect.value as FilterMode);
+      }
     };
 
-    searchInput.oninput = emitSearch;
+    this.searchInput.oninput = emitSearch;
     filterSelect.onchange = emitSearch;
 
     this.container.querySelector('#pjv-btn-depth-1')!.addEventListener('click', () => opts.onExpandDepth(1));
@@ -139,6 +159,11 @@ export class Toolbar {
     const toolsBtn = this.container.querySelector('#pjv-btn-tools');
     if (toolsBtn && opts.onOpenTools) {
       toolsBtn.addEventListener('click', () => opts.onOpenTools!());
+    }
+
+    const shortcutsBtn = this.container.querySelector('#pjv-btn-shortcuts');
+    if (shortcutsBtn && opts.onOpenShortcuts) {
+      shortcutsBtn.addEventListener('click', () => opts.onOpenShortcuts!());
     }
 
     const statsBadge = this.container.querySelector('#pjv-badge-stats');

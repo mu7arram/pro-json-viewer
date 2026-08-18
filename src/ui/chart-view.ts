@@ -2,6 +2,7 @@ export interface ChartViewOptions {
   container: HTMLElement;
   data: any;
   scanDepth?: number;
+  onToast?: (msg: string) => void;
 }
 
 export interface ChartTabDataset {
@@ -178,6 +179,7 @@ export class ChartView {
   private container: HTMLElement;
   private rawData: any;
   private scanDepth: number;
+  private onToast?: (msg: string) => void;
   private datasets: ChartTabDataset[] = [];
   private activeTabId: string = '';
   private selectedChartType: 'donut' | 'vbar' | 'hbar' = 'vbar';
@@ -190,6 +192,7 @@ export class ChartView {
     this.container = options.container;
     this.rawData = options.data;
     this.scanDepth = options.scanDepth || 3;
+    this.onToast = options.onToast;
 
     this.initDatasets();
     this.render();
@@ -495,8 +498,71 @@ export class ChartView {
       typeBtnGroup.appendChild(vbarBtn);
       typeBtnGroup.appendChild(hbarBtn);
 
+      // Export Action Buttons Group
+      const exportGroup = document.createElement('div');
+      exportGroup.className = 'pjv-btn-group';
+
+      const copyImgBtn = document.createElement('button');
+      copyImgBtn.className = 'pjv-btn';
+      copyImgBtn.title = 'Copy Chart Image to Clipboard';
+      copyImgBtn.textContent = '📋 Copy';
+      copyImgBtn.onclick = () => this.copyImageToClipboard(activeDataset);
+
+      const expPngBtn = document.createElement('button');
+      expPngBtn.className = 'pjv-btn active';
+      expPngBtn.title = 'Download High-Res PNG Image';
+      expPngBtn.textContent = '📷 PNG';
+      expPngBtn.onclick = () => this.exportPng(activeDataset);
+
+      const expSvgBtn = document.createElement('button');
+      expSvgBtn.className = 'pjv-btn';
+      expSvgBtn.title = 'Download Vector SVG';
+      expSvgBtn.textContent = '📥 SVG';
+      expSvgBtn.onclick = () => this.exportSvg(activeDataset);
+
+      exportGroup.appendChild(copyImgBtn);
+      exportGroup.appendChild(expPngBtn);
+      exportGroup.appendChild(expSvgBtn);
+
+      const rightControls = document.createElement('div');
+      rightControls.style.cssText = 'display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+      rightControls.appendChild(typeBtnGroup);
+      rightControls.appendChild(exportGroup);
+
       controlsBar.appendChild(leftGroup);
-      controlsBar.appendChild(typeBtnGroup);
+      controlsBar.appendChild(rightControls);
+      wrapper.appendChild(controlsBar);
+    } else if (activeDataset.type === 'breakdown') {
+      const controlsBar = document.createElement('div');
+      controlsBar.className = 'pjv-table-header';
+      controlsBar.style.cssText = 'padding: 8px 14px; background: var(--pjv-bg-badge); border-radius: 8px; border: 1px solid var(--pjv-border-color); margin: 10px 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px;';
+
+      const exportGroup = document.createElement('div');
+      exportGroup.className = 'pjv-btn-group';
+
+      const copyImgBtn = document.createElement('button');
+      copyImgBtn.className = 'pjv-btn';
+      copyImgBtn.title = 'Copy Chart Image to Clipboard';
+      copyImgBtn.textContent = '📋 Copy';
+      copyImgBtn.onclick = () => this.copyImageToClipboard(activeDataset);
+
+      const expPngBtn = document.createElement('button');
+      expPngBtn.className = 'pjv-btn active';
+      expPngBtn.title = 'Download High-Res PNG Image';
+      expPngBtn.textContent = '📷 PNG';
+      expPngBtn.onclick = () => this.exportPng(activeDataset);
+
+      const expSvgBtn = document.createElement('button');
+      expSvgBtn.className = 'pjv-btn';
+      expSvgBtn.title = 'Download Vector SVG';
+      expSvgBtn.textContent = '📥 SVG';
+      expSvgBtn.onclick = () => this.exportSvg(activeDataset);
+
+      exportGroup.appendChild(copyImgBtn);
+      exportGroup.appendChild(expPngBtn);
+      exportGroup.appendChild(expSvgBtn);
+
+      controlsBar.appendChild(exportGroup);
       wrapper.appendChild(controlsBar);
     }
 
@@ -758,5 +824,345 @@ export class ChartView {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  private truncate(str: string, maxLen: number): string {
+    if (!str) return '';
+    return str.length > maxLen ? str.slice(0, maxLen - 1) + '…' : str;
+  }
+
+  private getActiveChartItems(dataset: ChartTabDataset): { title: string; items: { label: string; value: number }[] } {
+    if (dataset.type === 'breakdown' && dataset.breakdown) {
+      return {
+        title: `${dataset.icon} ${dataset.label}`,
+        items: dataset.breakdown
+      };
+    }
+
+    if (dataset.type === 'array' && dataset.array) {
+      let items: { label: string; value: number }[] = [];
+      const labelKey = this.selectedLabelKey || Object.keys(dataset.array[0])[0];
+
+      if (this.aggregationMode === 'count') {
+        const countsMap = new Map<string, number>();
+        dataset.array.forEach((row) => {
+          const catName = String(row[labelKey] || 'Unspecified');
+          countsMap.set(catName, (countsMap.get(catName) || 0) + 1);
+        });
+        countsMap.forEach((count, cat) => items.push({ label: cat, value: count }));
+        items.sort((a, b) => b.value - a.value);
+      } else {
+        const valKey = this.selectedValueKey || Object.keys(dataset.array[0]).find((k) => typeof dataset.array![0][k] === 'number' && !isIdField(k)) || labelKey;
+        dataset.array.forEach((row) => {
+          const l = String(row[labelKey] || 'Item');
+          const v = Number(row[valKey]) || 0;
+          items.push({ label: l, value: v });
+        });
+      }
+
+      if (this.topNLimit > 0 && items.length > this.topNLimit) {
+        items = items.slice(0, this.topNLimit);
+      }
+
+      const chartTitle = this.aggregationMode === 'count'
+        ? `${dataset.label} — Count by ${labelKey}`
+        : `${dataset.label} — ${this.selectedValueKey}`;
+
+      return { title: chartTitle, items };
+    }
+
+    return { title: dataset.label, items: [] };
+  }
+
+  public generateCompleteChartSvg(dataset: ChartTabDataset): { svgString: string; width: number; height: number } | null {
+    const { title, items } = this.getActiveChartItems(dataset);
+    if (!items || items.length === 0) return null;
+
+    const width = 800;
+    const height = 520;
+    const padding = 28;
+
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const bgMain = isDark ? '#14141e' : '#f8fafc';
+    const bgCard = isDark ? '#1e1e2d' : '#ffffff';
+    const borderColor = isDark ? '#2e2e44' : '#e2e8f0';
+    const textMain = isDark ? '#f1f5f9' : '#0f172a';
+    const textMuted = isDark ? '#94a3b8' : '#64748b';
+    const syntaxKey = isDark ? '#38bdf8' : '#0284c7';
+
+    // Summary calculations
+    let maxVal = Math.max(...items.map((i) => i.value), 1);
+    let minVal = Math.min(...items.map((i) => i.value));
+    let sum = items.reduce((s, i) => s + i.value, 0);
+    let avg = (sum / items.length).toFixed(2);
+
+    let chartContentSvg = '';
+
+    if (this.selectedChartType === 'donut' || dataset.type === 'breakdown') {
+      // Donut Chart Vector Elements
+      const cx = 200;
+      const cy = 220;
+      const radius = 95;
+      const strokeWidth = 36;
+      const circumference = 2 * Math.PI * radius;
+      let accumulatedAngle = 0;
+
+      const circles = items.map((slice, i) => {
+        const pct = slice.value / sum;
+        const dashArray = `${pct * circumference} ${circumference}`;
+        const dashOffset = -accumulatedAngle * circumference;
+        accumulatedAngle += pct;
+        const color = PALETTE[i % PALETTE.length];
+
+        return `
+          <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" transform="rotate(-90 ${cx} ${cy})" />
+        `;
+      }).join('\n      ');
+
+      // Legend Items
+      const legendRows = items.slice(0, 10).map((slice, i) => {
+        const color = PALETTE[i % PALETTE.length];
+        const pct = sum > 0 ? ((slice.value / sum) * 100).toFixed(1) : '0';
+        const rowY = 120 + i * 26;
+        return `
+          <g transform="translate(380, ${rowY})">
+            <rect x="0" y="0" width="12" height="12" rx="3" fill="${color}" />
+            <text x="20" y="10" fill="${textMain}" font-size="11" font-family="-apple-system, sans-serif" font-weight="500">${this.escapeHtml(this.truncate(slice.label, 22))}</text>
+            <text x="360" y="10" fill="${textMuted}" font-size="11" font-family="monospace" text-anchor="end">${formatNumericValue(slice.value)} (${pct}%)</text>
+          </g>
+        `;
+      }).join('\n      ');
+
+      chartContentSvg = `
+        <g id="donut-graphic">
+          ${circles}
+          <text x="${cx}" y="${cy + 6}" text-anchor="middle" font-size="22" font-weight="700" fill="${textMain}" font-family="-apple-system, sans-serif">${formatNumericValue(sum)}</text>
+          <text x="${cx}" y="${cy + 26}" text-anchor="middle" font-size="11" fill="${textMuted}" font-family="-apple-system, sans-serif">Total</text>
+        </g>
+        <g id="donut-legend">
+          ${legendRows}
+        </g>
+      `;
+    } else if (this.selectedChartType === 'vbar') {
+      // Vertical Bar Chart Vector Elements
+      const plotX = 50;
+      const plotY = 90;
+      const plotW = 700;
+      const plotH = 260;
+      const barCount = Math.min(items.length, 16);
+      const visibleItems = items.slice(0, barCount);
+      const colWidth = plotW / barCount;
+      const barWidth = Math.min(42, colWidth * 0.65);
+
+      const barsSvg = visibleItems.map((item, i) => {
+        const color = PALETTE[i % PALETTE.length];
+        const barHeight = Math.max(8, (item.value / maxVal) * (plotH - 50));
+        const barX = plotX + i * colWidth + (colWidth - barWidth) / 2;
+        const barY = plotY + plotH - barHeight;
+
+        return `
+          <g>
+            <text x="${barX + barWidth / 2}" y="${barY - 8}" fill="${color}" font-size="10.5" font-weight="700" font-family="monospace" text-anchor="middle">${formatNumericValue(item.value)}</text>
+            <rect x="${barX}" y="${barY}" width="${barWidth}" height="${barHeight}" rx="5" ry="5" fill="${color}" />
+            <text x="${barX + barWidth / 2}" y="${plotY + plotH + 18}" fill="${textMuted}" font-size="10" font-family="-apple-system, sans-serif" text-anchor="middle">${this.escapeHtml(this.truncate(item.label, 10))}</text>
+          </g>
+        `;
+      }).join('\n      ');
+
+      chartContentSvg = `
+        <g id="vbar-graphic">
+          <line x1="${plotX}" y1="${plotY + plotH}" x2="${plotX + plotW}" y2="${plotY + plotH}" stroke="${borderColor}" stroke-width="1.5" />
+          ${barsSvg}
+        </g>
+      `;
+    } else {
+      // Horizontal Bar Chart Vector Elements
+      const plotX = 50;
+      const plotY = 90;
+      const rowCount = Math.min(items.length, 8);
+      const visibleItems = items.slice(0, rowCount);
+
+      const rowsSvg = visibleItems.map((item, i) => {
+        const color = PALETTE[i % PALETTE.length];
+        const pct = Math.min(100, Math.max(4, (item.value / maxVal) * 100));
+        const rowY = plotY + i * 36;
+        const barW = (pct / 100) * 600;
+
+        return `
+          <g transform="translate(${plotX}, ${rowY})">
+            <text x="0" y="10" fill="${textMain}" font-size="11" font-weight="500" font-family="-apple-system, sans-serif">${this.escapeHtml(this.truncate(item.label, 26))}</text>
+            <text x="700" y="10" fill="${color}" font-size="11" font-weight="700" font-family="monospace" text-anchor="end">${formatNumericValue(item.value)}</text>
+            <rect x="0" y="16" width="700" height="10" rx="5" fill="${borderColor}" />
+            <rect x="0" y="16" width="${barW}" height="10" rx="5" fill="${color}" />
+          </g>
+        `;
+      }).join('\n      ');
+
+      chartContentSvg = `
+        <g id="hbar-graphic">
+          ${rowsSvg}
+        </g>
+      `;
+    }
+
+    // Summary Stats Box Footer
+    const summarySvg = `
+      <g id="summary-badge-box" transform="translate(${padding}, 415)">
+        <rect width="${width - padding * 2}" height="70" rx="8" fill="${bgMain}" stroke="${borderColor}" stroke-width="1" />
+        <g transform="translate(30, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">🟢 Maximum</text>
+          <text x="0" y="24" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="monospace">${formatNumericValue(maxVal)}</text>
+        </g>
+        <g transform="translate(220, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">🔴 Minimum</text>
+          <text x="0" y="24" fill="${textMain}" font-size="16" font-weight="700" font-family="monospace">${formatNumericValue(minVal)}</text>
+        </g>
+        <g transform="translate(410, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">📐 Average</text>
+          <text x="0" y="24" fill="${textMain}" font-size="16" font-weight="700" font-family="monospace">${avg}</text>
+        </g>
+        <g transform="translate(590, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">🔢 Total Sum</text>
+          <text x="0" y="24" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="monospace">${formatNumericValue(sum)}</text>
+        </g>
+      </g>
+    `;
+
+    const svgString = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <!-- Background Card -->
+  <rect width="100%" height="100%" rx="12" fill="${bgCard}" stroke="${borderColor}" stroke-width="1.5" />
+  
+  <!-- Header Title -->
+  <text x="${padding}" y="45" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">${this.escapeHtml(title)}</text>
+  <line x1="${padding}" y1="62" x2="${width - padding}" y2="62" stroke="${borderColor}" stroke-width="1" />
+  
+  <!-- Chart Graphic -->
+  ${chartContentSvg}
+  
+  <!-- Summary Box -->
+  ${summarySvg}
+</svg>`;
+
+    return { svgString, width, height };
+  }
+
+  public exportSvg(dataset: ChartTabDataset) {
+    const res = this.generateCompleteChartSvg(dataset);
+    if (!res) return;
+
+    const blob = new Blob([res.svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `json-chart-${Date.now()}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (this.onToast) this.onToast('Exported vector SVG chart!');
+  }
+
+  public exportPng(dataset: ChartTabDataset) {
+    const res = this.generateCompleteChartSvg(dataset);
+    if (!res) return;
+
+    if (this.onToast) this.onToast('Rendering high-res PNG chart...');
+
+    const svgBlob = new Blob([res.svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(svgBlob);
+    const img = new Image();
+
+    img.onload = () => {
+      const scaleFactor = 2; // 2x Retina quality
+      const canvas = document.createElement('canvas');
+      canvas.width = res.width * scaleFactor;
+      canvas.height = res.height * scaleFactor;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+
+      ctx.scale(scaleFactor, scaleFactor);
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob((pngBlob) => {
+        URL.revokeObjectURL(blobUrl);
+        if (!pngBlob) return;
+
+        const pngUrl = URL.createObjectURL(pngBlob);
+        const a = document.createElement('a');
+        a.href = pngUrl;
+        a.download = `json-chart-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(pngUrl);
+        if (this.onToast) this.onToast('Exported high-res PNG chart image!');
+      }, 'image/png');
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      if (this.onToast) this.onToast('Exporting SVG fallback...');
+      this.exportSvg(dataset);
+    };
+
+    img.src = blobUrl;
+  }
+
+  public copyImageToClipboard(dataset: ChartTabDataset) {
+    const res = this.generateCompleteChartSvg(dataset);
+    if (!res) return;
+
+    if (this.onToast) this.onToast('Rendering chart for clipboard...');
+
+    const svgBlob = new Blob([res.svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(svgBlob);
+    const img = new Image();
+
+    img.onload = () => {
+      const scaleFactor = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = res.width * scaleFactor;
+      canvas.height = res.height * scaleFactor;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+
+      ctx.scale(scaleFactor, scaleFactor);
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob(async (pngBlob) => {
+        URL.revokeObjectURL(blobUrl);
+        if (!pngBlob) return;
+
+        try {
+          if (navigator.clipboard && (window as any).ClipboardItem) {
+            const item = new ClipboardItem({ 'image/png': pngBlob });
+            await navigator.clipboard.write([item]);
+            if (this.onToast) this.onToast('Copied chart image to clipboard! 📋');
+          } else {
+            if (this.onToast) this.onToast('Clipboard API not supported, downloading PNG...');
+            this.exportPng(dataset);
+          }
+        } catch (err) {
+          if (this.onToast) this.onToast('Failed to copy to clipboard, downloading PNG...');
+          this.exportPng(dataset);
+        }
+      }, 'image/png');
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      if (this.onToast) this.onToast('Failed to render chart image');
+    };
+
+    img.src = blobUrl;
   }
 }

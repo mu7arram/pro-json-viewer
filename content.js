@@ -726,16 +726,16 @@ class Toolbar {
       </div>
 
       <div class="pjv-btn-group">
-        <button class="pjv-btn active" id="pjv-btn-tree">Tree</button>
-        <button class="pjv-btn" id="pjv-btn-table">Table</button>
-        <button class="pjv-btn" id="pjv-btn-chart">Chart 📊</button>
-        <button class="pjv-btn" id="pjv-btn-diagram">Diagram 🗺️</button>
-        <button class="pjv-btn" id="pjv-btn-raw">Raw</button>
-        <button class="pjv-btn" id="pjv-btn-diff">Diff</button>
+        <button class="pjv-btn active" id="pjv-btn-tree" title="Tree View (Alt+1)">Tree</button>
+        <button class="pjv-btn" id="pjv-btn-table" title="Table View (Alt+2)">Table</button>
+        <button class="pjv-btn" id="pjv-btn-chart" title="Chart View (Alt+3)">Chart 📊</button>
+        <button class="pjv-btn" id="pjv-btn-diagram" title="Diagram View (Alt+4)">Diagram 🗺️</button>
+        <button class="pjv-btn" id="pjv-btn-raw" title="Raw View (Alt+5)">Raw</button>
+        <button class="pjv-btn" id="pjv-btn-diff" title="Diff Mode (Alt+6)">Diff</button>
       </div>
 
       <div class="pjv-search-box">
-        <input type="text" id="pjv-search-input" placeholder="Search keys, values, or JSONPath (e.g. $.users[0])..." />
+        <input type="text" id="pjv-search-input" placeholder="Search keys, values, or JSONPath (e.g. $.users[0])... [/]" />
         <select id="pjv-filter-mode" style="background:transparent; border:none; color:var(--pjv-text-muted); font-size:11px; cursor:pointer;">
           <option value="text">Text</option>
           <option value="regex">Regex</option>
@@ -747,8 +747,8 @@ class Toolbar {
         <button class="pjv-btn" id="pjv-btn-depth-1">D1</button>
         <button class="pjv-btn" id="pjv-btn-depth-2">D2</button>
         <button class="pjv-btn" id="pjv-btn-depth-3">D3</button>
-        <button class="pjv-btn" id="pjv-btn-expand-all">Expand</button>
-        <button class="pjv-btn" id="pjv-btn-collapse-all">Collapse</button>
+        <button class="pjv-btn" id="pjv-btn-expand-all" title="Expand All (e)">Expand</button>
+        <button class="pjv-btn" id="pjv-btn-collapse-all" title="Collapse All (c)">Collapse</button>
       </div>
 
       <div class="pjv-btn-group">
@@ -763,7 +763,8 @@ class Toolbar {
           <option value="github-dark">🎨 GH Dark</option>
           <option value="github-light">🎨 GH Light</option>
         </select>
-        <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter">🛠️ Tools</button>
+        <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter (t)">🛠️ Tools</button>
+        <button class="pjv-btn" id="pjv-btn-shortcuts" title="Keyboard Shortcuts Cheatsheet (?)">⌨️</button>
         <button class="pjv-btn" id="pjv-btn-copy" title="Copy formatted JSON">Copy</button>
         <button class="pjv-btn" id="pjv-btn-download" title="Download JSON file">Save</button>
         <button class="pjv-btn" id="pjv-btn-options" title="Extension Settings">⚙️</button>
@@ -795,6 +796,7 @@ class Toolbar {
       if (mode === 'diff') diffBtn.classList.add('active');
       opts.onViewModeChange(mode);
     };
+    this.setView = setView;
 
     treeBtn.onclick = () => setView('tree');
     tableBtn.onclick = () => setView('table');
@@ -807,6 +809,7 @@ class Toolbar {
     };
 
     const searchInput = this.container.querySelector('#pjv-search-input');
+    this.searchInput = searchInput;
     const filterSelect = this.container.querySelector('#pjv-filter-mode');
 
     const emitSearch = () => {
@@ -827,6 +830,11 @@ class Toolbar {
       toolsBtn.onclick = () => opts.onOpenTools();
     }
 
+    const shortcutsBtn = this.container.querySelector('#pjv-btn-shortcuts');
+    if (shortcutsBtn && opts.onOpenShortcuts) {
+      shortcutsBtn.onclick = () => opts.onOpenShortcuts();
+    }
+
     const statsBadge = this.container.querySelector('#pjv-badge-stats');
     if (statsBadge && opts.onOpenTools) {
       statsBadge.onclick = () => opts.onOpenTools();
@@ -841,6 +849,19 @@ class Toolbar {
     themeSelect.onchange = () => {
       if (opts.onThemeChange) opts.onThemeChange(themeSelect.value);
     };
+  }
+
+  focusSearch() {
+    if (this.searchInput) {
+      this.searchInput.focus();
+      this.searchInput.select();
+    }
+  }
+
+  setViewMode(mode) {
+    if (this.setView) {
+      this.setView(mode);
+    }
   }
 }
 
@@ -1627,6 +1648,7 @@ class ChartView {
     this.container = options.container;
     this.rawData = options.data;
     this.scanDepth = options.scanDepth || 3;
+    this.onToast = options.onToast;
     this.datasets = [];
     this.activeTabId = '';
     this.selectedChartType = 'vbar';
@@ -1939,8 +1961,71 @@ class ChartView {
       typeBtnGroup.appendChild(vbarBtn);
       typeBtnGroup.appendChild(hbarBtn);
 
+      // Export Action Buttons Group
+      const exportGroup = document.createElement('div');
+      exportGroup.className = 'pjv-btn-group';
+
+      const copyImgBtn = document.createElement('button');
+      copyImgBtn.className = 'pjv-btn';
+      copyImgBtn.title = 'Copy Chart Image to Clipboard';
+      copyImgBtn.textContent = '📋 Copy';
+      copyImgBtn.onclick = () => this.copyImageToClipboard(activeDataset);
+
+      const expPngBtn = document.createElement('button');
+      expPngBtn.className = 'pjv-btn active';
+      expPngBtn.title = 'Download High-Res PNG Image';
+      expPngBtn.textContent = '📷 PNG';
+      expPngBtn.onclick = () => this.exportPng(activeDataset);
+
+      const expSvgBtn = document.createElement('button');
+      expSvgBtn.className = 'pjv-btn';
+      expSvgBtn.title = 'Download Vector SVG';
+      expSvgBtn.textContent = '📥 SVG';
+      expSvgBtn.onclick = () => this.exportSvg(activeDataset);
+
+      exportGroup.appendChild(copyImgBtn);
+      exportGroup.appendChild(expPngBtn);
+      exportGroup.appendChild(expSvgBtn);
+
+      const rightControls = document.createElement('div');
+      rightControls.style.cssText = 'display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+      rightControls.appendChild(typeBtnGroup);
+      rightControls.appendChild(exportGroup);
+
       controlsBar.appendChild(leftGroup);
-      controlsBar.appendChild(typeBtnGroup);
+      controlsBar.appendChild(rightControls);
+      wrapper.appendChild(controlsBar);
+    } else if (activeDataset.type === 'breakdown') {
+      const controlsBar = document.createElement('div');
+      controlsBar.className = 'pjv-table-header';
+      controlsBar.style.cssText = 'padding: 8px 14px; background: var(--pjv-bg-badge); border-radius: 8px; border: 1px solid var(--pjv-border-color); margin: 10px 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px;';
+
+      const exportGroup = document.createElement('div');
+      exportGroup.className = 'pjv-btn-group';
+
+      const copyImgBtn = document.createElement('button');
+      copyImgBtn.className = 'pjv-btn';
+      copyImgBtn.title = 'Copy Chart Image to Clipboard';
+      copyImgBtn.textContent = '📋 Copy';
+      copyImgBtn.onclick = () => this.copyImageToClipboard(activeDataset);
+
+      const expPngBtn = document.createElement('button');
+      expPngBtn.className = 'pjv-btn active';
+      expPngBtn.title = 'Download High-Res PNG Image';
+      expPngBtn.textContent = '📷 PNG';
+      expPngBtn.onclick = () => this.exportPng(activeDataset);
+
+      const expSvgBtn = document.createElement('button');
+      expSvgBtn.className = 'pjv-btn';
+      expSvgBtn.title = 'Download Vector SVG';
+      expSvgBtn.textContent = '📥 SVG';
+      expSvgBtn.onclick = () => this.exportSvg(activeDataset);
+
+      exportGroup.appendChild(copyImgBtn);
+      exportGroup.appendChild(expPngBtn);
+      exportGroup.appendChild(expSvgBtn);
+
+      controlsBar.appendChild(exportGroup);
       wrapper.appendChild(controlsBar);
     }
 
@@ -2204,6 +2289,328 @@ class ChartView {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  getActiveChartItems(dataset) {
+    if (dataset.type === 'breakdown' && dataset.breakdown) {
+      return {
+        title: `${dataset.icon} ${dataset.label}`,
+        items: dataset.breakdown
+      };
+    }
+
+    if (dataset.type === 'array' && dataset.array) {
+      let items = [];
+      const labelKey = this.selectedLabelKey || Object.keys(dataset.array[0])[0];
+
+      if (this.aggregationMode === 'count') {
+        const countsMap = new Map();
+        dataset.array.forEach((row) => {
+          const catName = String(row[labelKey] || 'Unspecified');
+          countsMap.set(catName, (countsMap.get(catName) || 0) + 1);
+        });
+        countsMap.forEach((count, cat) => items.push({ label: cat, value: count }));
+        items.sort((a, b) => b.value - a.value);
+      } else {
+        const valKey = this.selectedValueKey || Object.keys(dataset.array[0]).find((k) => typeof dataset.array[0][k] === 'number' && !isIdField(k)) || labelKey;
+        dataset.array.forEach((row) => {
+          const l = String(row[labelKey] || 'Item');
+          const v = Number(row[valKey]) || 0;
+          items.push({ label: l, value: v });
+        });
+      }
+
+      if (this.topNLimit > 0 && items.length > this.topNLimit) {
+        items = items.slice(0, this.topNLimit);
+      }
+
+      const chartTitle = this.aggregationMode === 'count'
+        ? `${dataset.label} — Count by ${labelKey}`
+        : `${dataset.label} — ${this.selectedValueKey}`;
+
+      return { title: chartTitle, items };
+    }
+
+    return { title: dataset.label, items: [] };
+  }
+
+  generateCompleteChartSvg(dataset) {
+    const { title, items } = this.getActiveChartItems(dataset);
+    if (!items || items.length === 0) return null;
+
+    const width = 800;
+    const height = 520;
+    const padding = 28;
+
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const bgMain = isDark ? '#14141e' : '#f8fafc';
+    const bgCard = isDark ? '#1e1e2d' : '#ffffff';
+    const borderColor = isDark ? '#2e2e44' : '#e2e8f0';
+    const textMain = isDark ? '#f1f5f9' : '#0f172a';
+    const textMuted = isDark ? '#94a3b8' : '#64748b';
+    const syntaxKey = isDark ? '#38bdf8' : '#0284c7';
+
+    let maxVal = Math.max(...items.map((i) => i.value), 1);
+    let minVal = Math.min(...items.map((i) => i.value));
+    let sum = items.reduce((s, i) => s + i.value, 0);
+    let avg = (sum / items.length).toFixed(2);
+
+    let chartContentSvg = '';
+
+    if (this.selectedChartType === 'donut' || dataset.type === 'breakdown') {
+      const cx = 200;
+      const cy = 220;
+      const radius = 95;
+      const strokeWidth = 36;
+      const circumference = 2 * Math.PI * radius;
+      let accumulatedAngle = 0;
+
+      const circles = items.map((slice, i) => {
+        const pct = slice.value / sum;
+        const dashArray = `${pct * circumference} ${circumference}`;
+        const dashOffset = -accumulatedAngle * circumference;
+        accumulatedAngle += pct;
+        const color = CHART_PALETTE[i % CHART_PALETTE.length];
+
+        return `
+          <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" transform="rotate(-90 ${cx} ${cy})" />
+        `;
+      }).join('\n      ');
+
+      const legendRows = items.slice(0, 10).map((slice, i) => {
+        const color = CHART_PALETTE[i % CHART_PALETTE.length];
+        const pct = sum > 0 ? ((slice.value / sum) * 100).toFixed(1) : '0';
+        const rowY = 120 + i * 26;
+        return `
+          <g transform="translate(380, ${rowY})">
+            <rect x="0" y="0" width="12" height="12" rx="3" fill="${color}" />
+            <text x="20" y="10" fill="${textMain}" font-size="11" font-family="-apple-system, sans-serif" font-weight="500">${this.escapeHtml(truncate(slice.label, 22))}</text>
+            <text x="360" y="10" fill="${textMuted}" font-size="11" font-family="monospace" text-anchor="end">${formatNumericValue(slice.value)} (${pct}%)</text>
+          </g>
+        `;
+      }).join('\n      ');
+
+      chartContentSvg = `
+        <g id="donut-graphic">
+          ${circles}
+          <text x="${cx}" y="${cy + 6}" text-anchor="middle" font-size="22" font-weight="700" fill="${textMain}" font-family="-apple-system, sans-serif">${formatNumericValue(sum)}</text>
+          <text x="${cx}" y="${cy + 26}" text-anchor="middle" font-size="11" fill="${textMuted}" font-family="-apple-system, sans-serif">Total</text>
+        </g>
+        <g id="donut-legend">
+          ${legendRows}
+        </g>
+      `;
+    } else if (this.selectedChartType === 'vbar') {
+      const plotX = 50;
+      const plotY = 90;
+      const plotW = 700;
+      const plotH = 260;
+      const barCount = Math.min(items.length, 16);
+      const visibleItems = items.slice(0, barCount);
+      const colWidth = plotW / barCount;
+      const barWidth = Math.min(42, colWidth * 0.65);
+
+      const barsSvg = visibleItems.map((item, i) => {
+        const color = CHART_PALETTE[i % CHART_PALETTE.length];
+        const barHeight = Math.max(8, (item.value / maxVal) * (plotH - 50));
+        const barX = plotX + i * colWidth + (colWidth - barWidth) / 2;
+        const barY = plotY + plotH - barHeight;
+
+        return `
+          <g>
+            <text x="${barX + barWidth / 2}" y="${barY - 8}" fill="${color}" font-size="10.5" font-weight="700" font-family="monospace" text-anchor="middle">${formatNumericValue(item.value)}</text>
+            <rect x="${barX}" y="${barY}" width="${barWidth}" height="${barHeight}" rx="5" ry="5" fill="${color}" />
+            <text x="${barX + barWidth / 2}" y="${plotY + plotH + 18}" fill="${textMuted}" font-size="10" font-family="-apple-system, sans-serif" text-anchor="middle">${this.escapeHtml(truncate(item.label, 10))}</text>
+          </g>
+        `;
+      }).join('\n      ');
+
+      chartContentSvg = `
+        <g id="vbar-graphic">
+          <line x1="${plotX}" y1="${plotY + plotH}" x2="${plotX + plotW}" y2="${plotY + plotH}" stroke="${borderColor}" stroke-width="1.5" />
+          ${barsSvg}
+        </g>
+      `;
+    } else {
+      const plotX = 50;
+      const plotY = 90;
+      const rowCount = Math.min(items.length, 8);
+      const visibleItems = items.slice(0, rowCount);
+
+      const rowsSvg = visibleItems.map((item, i) => {
+        const color = CHART_PALETTE[i % CHART_PALETTE.length];
+        const pct = Math.min(100, Math.max(4, (item.value / maxVal) * 100));
+        const rowY = plotY + i * 36;
+        const barW = (pct / 100) * 600;
+
+        return `
+          <g transform="translate(${plotX}, ${rowY})">
+            <text x="0" y="10" fill="${textMain}" font-size="11" font-weight="500" font-family="-apple-system, sans-serif">${this.escapeHtml(truncate(item.label, 26))}</text>
+            <text x="700" y="10" fill="${color}" font-size="11" font-weight="700" font-family="monospace" text-anchor="end">${formatNumericValue(item.value)}</text>
+            <rect x="0" y="16" width="700" height="10" rx="5" fill="${borderColor}" />
+            <rect x="0" y="16" width="${barW}" height="10" rx="5" fill="${color}" />
+          </g>
+        `;
+      }).join('\n      ');
+
+      chartContentSvg = `
+        <g id="hbar-graphic">
+          ${rowsSvg}
+        </g>
+      `;
+    }
+
+    const summarySvg = `
+      <g id="summary-badge-box" transform="translate(${padding}, 415)">
+        <rect width="${width - padding * 2}" height="70" rx="8" fill="${bgMain}" stroke="${borderColor}" stroke-width="1" />
+        <g transform="translate(30, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">🟢 Maximum</text>
+          <text x="0" y="24" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="monospace">${formatNumericValue(maxVal)}</text>
+        </g>
+        <g transform="translate(220, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">🔴 Minimum</text>
+          <text x="0" y="24" fill="${textMain}" font-size="16" font-weight="700" font-family="monospace">${formatNumericValue(minVal)}</text>
+        </g>
+        <g transform="translate(410, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">📐 Average</text>
+          <text x="0" y="24" fill="${textMain}" font-size="16" font-weight="700" font-family="monospace">${avg}</text>
+        </g>
+        <g transform="translate(590, 24)">
+          <text x="0" y="0" fill="${textMuted}" font-size="9.5" font-weight="600" text-transform="uppercase">🔢 Total Sum</text>
+          <text x="0" y="24" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="monospace">${formatNumericValue(sum)}</text>
+        </g>
+      </g>
+    `;
+
+    const svgString = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="100%" height="100%" rx="12" fill="${bgCard}" stroke="${borderColor}" stroke-width="1.5" />
+  <text x="${padding}" y="45" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">${this.escapeHtml(title)}</text>
+  <line x1="${padding}" y1="62" x2="${width - padding}" y2="62" stroke="${borderColor}" stroke-width="1" />
+  ${chartContentSvg}
+  ${summarySvg}
+</svg>`;
+
+    return { svgString, width, height };
+  }
+
+  exportSvg(dataset) {
+    const res = this.generateCompleteChartSvg(dataset);
+    if (!res) return;
+
+    const blob = new Blob([res.svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `json-chart-${Date.now()}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (this.onToast) this.onToast('Exported vector SVG chart!');
+  }
+
+  exportPng(dataset) {
+    const res = this.generateCompleteChartSvg(dataset);
+    if (!res) return;
+
+    if (this.onToast) this.onToast('Rendering high-res PNG chart...');
+
+    const svgBlob = new Blob([res.svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(svgBlob);
+    const img = new Image();
+
+    img.onload = () => {
+      const scaleFactor = 2; // 2x Retina quality
+      const canvas = document.createElement('canvas');
+      canvas.width = res.width * scaleFactor;
+      canvas.height = res.height * scaleFactor;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+
+      ctx.scale(scaleFactor, scaleFactor);
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob((pngBlob) => {
+        URL.revokeObjectURL(blobUrl);
+        if (!pngBlob) return;
+
+        const pngUrl = URL.createObjectURL(pngBlob);
+        const a = document.createElement('a');
+        a.href = pngUrl;
+        a.download = `json-chart-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(pngUrl);
+        if (this.onToast) this.onToast('Exported high-res PNG chart image!');
+      }, 'image/png');
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      if (this.onToast) this.onToast('Exporting SVG fallback...');
+      this.exportSvg(dataset);
+    };
+
+    img.src = blobUrl;
+  }
+
+  copyImageToClipboard(dataset) {
+    const res = this.generateCompleteChartSvg(dataset);
+    if (!res) return;
+
+    if (this.onToast) this.onToast('Rendering chart for clipboard...');
+
+    const svgBlob = new Blob([res.svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(svgBlob);
+    const img = new Image();
+
+    img.onload = () => {
+      const scaleFactor = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = res.width * scaleFactor;
+      canvas.height = res.height * scaleFactor;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+
+      ctx.scale(scaleFactor, scaleFactor);
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob(async (pngBlob) => {
+        URL.revokeObjectURL(blobUrl);
+        if (!pngBlob) return;
+
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            const item = new ClipboardItem({ 'image/png': pngBlob });
+            await navigator.clipboard.write([item]);
+            if (this.onToast) this.onToast('Copied chart image to clipboard! 📋');
+          } else {
+            if (this.onToast) this.onToast('Clipboard API not supported, downloading PNG...');
+            this.exportPng(dataset);
+          }
+        } catch (err) {
+          if (this.onToast) this.onToast('Failed to copy to clipboard, downloading PNG...');
+          this.exportPng(dataset);
+        }
+      }, 'image/png');
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      if (this.onToast) this.onToast('Failed to render chart image');
+    };
+
+    img.src = blobUrl;
   }
 }
 
@@ -3513,6 +3920,197 @@ function openToolsModal(options) {
   document.body.appendChild(backdrop);
 }
 
+// --- 8.8. KEYBOARD SHORTCUTS CHEATSHEET MODAL & HOTKEY HANDLER ---
+const SHORTCUT_DEFINITIONS = [
+  {
+    category: 'View Switching',
+    shortcuts: [
+      { keys: ['Alt', '1'], description: 'Switch to Tree View' },
+      { keys: ['Alt', '2'], description: 'Switch to Table View' },
+      { keys: ['Alt', '3'], description: 'Switch to Chart View 📊' },
+      { keys: ['Alt', '4'], description: 'Switch to Diagram View 🗺️' },
+      { keys: ['Alt', '5'], description: 'Switch to Raw JSON View' },
+      { keys: ['Alt', '6'], description: 'Open JSON Diff Mode' },
+    ]
+  },
+  {
+    category: 'Navigation & Tree Control',
+    shortcuts: [
+      { keys: ['/'], description: 'Jump focus to Search / JSONPath bar' },
+      { keys: ['Cmd', 'F'], description: 'Focus Search bar (Ctrl+F on Windows)' },
+      { keys: ['e'], description: 'Expand all nodes recursively' },
+      { keys: ['c'], description: 'Collapse all nodes to root' },
+    ]
+  },
+  {
+    category: 'Developer Tools & Help',
+    shortcuts: [
+      { keys: ['t'], description: 'Open TypeScript & Zod Dev Tools Suite' },
+      { keys: ['?'], description: 'Open Keyboard Shortcuts cheatsheet' },
+      { keys: ['Esc'], description: 'Close any active modal dialog' },
+    ]
+  }
+];
+
+function openShortcutsModal() {
+  const existing = document.querySelector('.pjv-shortcuts-backdrop');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+  const backdrop = document.createElement('div');
+  backdrop.className = 'pjv-modal-backdrop pjv-shortcuts-backdrop';
+
+  const modal = document.createElement('div');
+  modal.className = 'pjv-modal pjv-shortcuts-modal';
+  modal.style.cssText = 'max-width: 580px; width: 90%; background: var(--pjv-bg-card, #1e1e2d); border: 1px solid var(--pjv-border-color, #2e2e44); border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); padding: 0; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
+
+  const sectionsHtml = SHORTCUT_DEFINITIONS.map((group) => {
+    const rowsHtml = group.shortcuts.map((sc) => {
+      const keysHtml = sc.keys.map((k) => {
+        let displayKey = k;
+        if (k === 'Cmd' && !isMac) displayKey = 'Ctrl';
+        if (k === 'Alt' && isMac) displayKey = '⌥ Option';
+        return `<kbd>${displayKey}</kbd>`;
+      }).join(' <span style="color:var(--pjv-text-muted);font-size:11px;">+</span> ');
+
+      return `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <span style="font-size: 12.5px; color: var(--pjv-text-main);">${sc.description}</span>
+          <div class="pjv-kbd-group">${keysHtml}</div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-bottom: 18px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--pjv-syntax-key); margin-bottom: 6px;">${group.category}</div>
+        <div>${rowsHtml}</div>
+      </div>
+    `;
+  }).join('');
+
+  modal.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--pjv-border-color); background: var(--pjv-bg-main);">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">⌨️</span>
+        <h3 style="margin: 0; font-size: 15px; color: var(--pjv-syntax-key); font-weight: 700;">Keyboard Shortcuts</h3>
+      </div>
+      <button id="pjv-shortcuts-close" class="pjv-btn" style="padding: 4px 8px; border-radius: 4px; cursor: pointer;">✕</button>
+    </div>
+
+    <div style="padding: 20px 24px; max-height: 70vh; overflow-y: auto;">
+      ${sectionsHtml}
+    </div>
+
+    <div style="padding: 10px 20px; background: var(--pjv-bg-main); border-top: 1px solid var(--pjv-border-color); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--pjv-text-muted);">
+      <span>Press <kbd>Esc</kbd> or click ✕ to dismiss</span>
+      <span style="font-weight: 500;">Pro JSON Viewer</span>
+    </div>
+  `;
+
+  const closeBtn = modal.querySelector('#pjv-shortcuts-close');
+  closeBtn.onclick = () => backdrop.remove();
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  };
+
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+}
+
+function registerKeyboardShortcuts(handlers) {
+  const handleKeyDown = (e) => {
+    const isTyping =
+      document.activeElement &&
+      (document.activeElement.tagName === 'INPUT' ||
+        document.activeElement.tagName === 'TEXTAREA' ||
+        document.activeElement.isContentEditable);
+
+    // Escape closes any active modals
+    if (e.key === 'Escape') {
+      const activeBackdrop = document.querySelector('.pjv-modal-backdrop');
+      if (activeBackdrop) {
+        activeBackdrop.remove();
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // Don't trigger navigation shortcuts if the user is currently typing in an input
+    if (isTyping) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        handlers.onFocusSearch();
+      }
+      return;
+    }
+
+    // Alt/Option + 1..6: Switch view modes (checking e.code handles macOS Option key unicode character production)
+    if (e.altKey && !e.ctrlKey && !e.metaKey) {
+      if (e.code === 'Digit1' || e.code === 'Numpad1' || e.key === '1') {
+        e.preventDefault();
+        handlers.onSwitchView('tree');
+      } else if (e.code === 'Digit2' || e.code === 'Numpad2' || e.key === '2') {
+        e.preventDefault();
+        handlers.onSwitchView('table');
+      } else if (e.code === 'Digit3' || e.code === 'Numpad3' || e.key === '3') {
+        e.preventDefault();
+        handlers.onSwitchView('chart');
+      } else if (e.code === 'Digit4' || e.code === 'Numpad4' || e.key === '4') {
+        e.preventDefault();
+        handlers.onSwitchView('diagram');
+      } else if (e.code === 'Digit5' || e.code === 'Numpad5' || e.key === '5') {
+        e.preventDefault();
+        handlers.onSwitchView('raw');
+      } else if (e.code === 'Digit6' || e.code === 'Numpad6' || e.key === '6') {
+        e.preventDefault();
+        handlers.onSwitchView('diff');
+        if (handlers.onOpenDiff) handlers.onOpenDiff();
+      }
+      return;
+    }
+
+    // Jump to search: '/' or 'Cmd+F' / 'Ctrl+F'
+    if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key === 'f')) {
+      e.preventDefault();
+      handlers.onFocusSearch();
+      return;
+    }
+
+    // Expand All / Collapse All
+    if (e.key === 'e' || e.key === 'E') {
+      e.preventDefault();
+      handlers.onExpandAll();
+      return;
+    }
+    if (e.key === 'c' || e.key === 'C') {
+      e.preventDefault();
+      handlers.onCollapseAll();
+      return;
+    }
+
+    // Developer tools suite: 't'
+    if (e.key === 't' || e.key === 'T') {
+      e.preventDefault();
+      if (handlers.onOpenTools) handlers.onOpenTools();
+      return;
+    }
+
+    // Keyboard Shortcuts Cheatsheet: '?'
+    if (e.key === '?') {
+      e.preventDefault();
+      openShortcutsModal();
+      return;
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}
+
 // --- 9. APP INITIALIZATION & INJECTION ---
 const DEFAULT_SETTINGS = {
   theme: 'system',
@@ -3632,7 +4230,7 @@ function renderApp(mountTarget, rawJsonText) {
       treeView.setNodes(currentNodes, matchedIds);
     };
 
-    new Toolbar({
+    const toolbar = new Toolbar({
       container: toolbarContainer,
       currentTheme: settings.theme,
       statsSummary,
@@ -3667,7 +4265,8 @@ function renderApp(mountTarget, rawJsonText) {
           new ChartView({
             container: chartContainer,
             data: jsonObject,
-            scanDepth: settings.tableScanDepth || 3
+            scanDepth: settings.tableScanDepth || 3,
+            onToast: showToast
           });
         } else if (mode === 'diagram') {
           diagramContainer.innerHTML = '';
@@ -3725,12 +4324,55 @@ function renderApp(mountTarget, rawJsonText) {
           onToast: showToast
         });
       },
+      onOpenShortcuts: () => {
+        openShortcutsModal();
+      },
       onOpenOptions: () => {
         if (typeof chrome !== 'undefined' && chrome.runtime?.openOptionsPage) {
           chrome.runtime.openOptionsPage();
         } else {
           alert('Options is only available inside extension page context.');
         }
+      }
+    });
+
+    // Global Keyboard Shortcuts
+    registerKeyboardShortcuts({
+      onSwitchView: (mode) => {
+        toolbar.setViewMode(mode);
+      },
+      onFocusSearch: () => {
+        toolbar.focusSearch();
+      },
+      onExpandAll: () => {
+        expandedStateMap.clear();
+        currentNodes = buildFlatNodes(jsonObject, 100, expandedStateMap);
+        applyRender();
+        showToast('Expanded All');
+      },
+      onCollapseAll: () => {
+        expandedStateMap.clear();
+        currentNodes = buildFlatNodes(jsonObject, 0, expandedStateMap);
+        applyRender();
+        showToast('Collapsed All');
+      },
+      onOpenDiff: () => {
+        openDiffModal({
+          primaryData: jsonObject,
+          onDiffReady: (diffNodes, stats) => {
+            currentNodes = diffNodes;
+            treeView.setNodes(diffNodes);
+            showToast(`Diff stats: +${stats.added} -${stats.removed} ~${stats.modified}`);
+          }
+        });
+      },
+      onOpenTools: () => {
+        openToolsModal({
+          data: jsonObject,
+          rawText: rawJsonText,
+          parseTimeMs,
+          onToast: showToast
+        });
       }
     });
 
