@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-16  
-**Version**: 1.4.0  
+**Last Updated**: 2026-08-17  
+**Version**: 1.5.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -12,12 +12,13 @@
 Pro JSON Viewer
 
 ### Short Description (max 132 chars)
-Fast, virtualized Manifest V3 JSON viewer with instant search, TypeScript/Zod schema generator, table mode, and visual charts.
+Fast, virtualized Manifest V3 JSON viewer with diagram graph, search, TypeScript/Zod generator, table mode, and visual charts.
 
 ### Detailed Description
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
 
 **Key Features:**
+- 🗺️ **Interactive Diagram & Hierarchy Graph**: Visual graph explorer with zoom, pan, depth-based expansion, search filtering, orientation toggle, and pure SVG / high-resolution PNG exports.
 - ⚡ **High-Performance Virtualization**: Smooth 60fps windowed scrolling for large multi-megabyte JSON responses without tab freezes.
 - 🛠️ **Developer Tools Suite**: One-click TypeScript interface & Zod validation schema generator with copy and `.d.ts` / `.ts` download options.
 - 💾 **Multi-Format Exporter**: Export JSON payloads into RFC 4180 CSV spreadsheets, clean YAML documents, and formatted or minified JSON files.
@@ -49,6 +50,12 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 1.5.0 (2026-08-17)
+- Added **Interactive Diagram View (`DiagramView`)**: Visual hierarchy graph for exploring complex JSON relationships.
+- Added **Zoom, Pan & Orientation Controls**: Smooth canvas navigation with zoom in/out, fit-to-screen, and horizontal/vertical layout orientations.
+- Added **Node Search & Highlighting**: Find nodes across deep hierarchies with real-time text matching and auto-expansion.
+- Added **Pure Vector SVG & PNG Exporter**: Export diagram graphs to clean vector SVG and high-resolution PNG image files without tainted canvas security errors.
 
 ### Version 1.4.0 (2026-08-16)
 - Added **Developer Tools Suite (`ToolsModal`)**: Dedicated modal offering TypeScript interface generation, Zod validation schema generation, YAML/CSV conversion, and payload analytics.
