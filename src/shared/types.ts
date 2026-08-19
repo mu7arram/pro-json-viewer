@@ -75,3 +75,20 @@ export const DEFAULT_SETTINGS: UserSettings = {
 
 export type ViewMode = 'tree' | 'raw' | 'diff' | 'table' | 'chart' | 'diagram';
 export type FilterMode = 'text' | 'regex' | 'jsonpath';
+
+export interface ParseProgressPayload {
+  stage: string;
+  percent: number;
+  bytesProcessed?: number;
+  totalBytes?: number;
+  elapsedMs?: number;
+}
+
+export interface ParseWorkerResult {
+  jsonObject: any;
+  flatNodes: FlatNode[];
+  formattedSize: string;
+  maxDepth: number;
+  totalKeys: number;
+  parseTimeMs: number;
+}

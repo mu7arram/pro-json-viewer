@@ -1,6 +1,8 @@
 import { getSettings, saveSettings } from '../shared/storage';
 import { copyToClipboard } from '../shared/utils';
-import { buildFlatNodes, parseJson } from '../engine/parser';
+import { buildFlatNodes } from '../engine/parser';
+import { parseJsonAsync } from '../engine/worker-bridge';
+import { ProgressLoader } from '../ui/progress-loader';
 import { searchTree } from '../engine/jsonpath';
 import { FilterMode, FlatNode, ViewMode } from '../shared/types';
 import { TreeView } from '../ui/tree-view';
@@ -81,12 +83,38 @@ async function launchScratchpad(container: HTMLElement) {
     }
   }
 
-  let jsonObject = parseJson(sampleJsonStr);
   const settings = await getSettings();
 
   document.documentElement.setAttribute('data-theme', settings.theme === 'system'
     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     : settings.theme);
+
+  let loader: ProgressLoader | null = null;
+  if (sampleJsonStr.length > 1.5 * 1024 * 1024) {
+    loader = new ProgressLoader(document.body, sampleJsonStr.length);
+  }
+
+  let expandedStateMap = new Map<string, boolean>();
+  let parseResult;
+  try {
+    parseResult = await parseJsonAsync(
+      sampleJsonStr,
+      settings.defaultExpandDepth,
+      expandedStateMap,
+      (progress) => {
+        if (loader) loader.update(progress);
+      }
+    );
+  } catch (err) {
+    if (loader) loader.remove();
+    console.error('Scratchpad parse error:', err);
+    return;
+  }
+
+  if (loader) loader.remove();
+
+  const jsonObject = parseResult.jsonObject;
+  let currentNodes: FlatNode[] = parseResult.flatNodes;
 
   const root = document.createElement('div');
   root.className = 'pjv-root';
@@ -127,8 +155,6 @@ async function launchScratchpad(container: HTMLElement) {
     setTimeout(() => toastEl.classList.remove('show'), 2000);
   };
 
-  let expandedStateMap = new Map<string, boolean>();
-  let currentNodes: FlatNode[] = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
   let activeQuery = '';
   let activeMode: FilterMode = 'text';
 
