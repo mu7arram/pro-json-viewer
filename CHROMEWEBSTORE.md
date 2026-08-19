@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-18  
-**Version**: 1.6.0  
+**Last Updated**: 2026-08-19  
+**Version**: 1.7.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -12,12 +12,14 @@
 Pro JSON Viewer
 
 ### Short Description (max 132 chars)
-Fast, virtualized Manifest V3 JSON viewer with diagram graph, keyboard shortcuts suite, chart exports, TypeScript generator, and diff.
+Fast, virtualized Manifest V3 JSON viewer with off-thread Web Worker parser for 50MB+ payloads, diagram graph, charts, and dev tools.
 
 ### Detailed Description
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
 
 **Key Features:**
+- ⚡ **Web Worker Off-Thread Parser (50MB+)**: Deserializes and traverses massive multi-megabyte payloads off the main thread with zero browser tab freezing and silky smooth 60fps UI responsiveness.
+- ⏳ **Glassmorphism Progress Loader**: Live progress indicator for large payloads with animated spinner, dynamic byte counters, and parse benchmark timer.
 - ⌨️ **Keyboard Shortcuts & Power-User Suite**: Instant hotkeys for view switching (`Alt/Option + 1..6`), search focus (`/` or `Cmd/Ctrl+F`), tree expansion (`e`/`c`), developer tools (`t`), and interactive cheatsheet modal (`?`).
 - 📷 **Visual Chart Image Exporters**: Export Donut, Vertical Bar, and Horizontal Bar charts into vector SVG, high-resolution 2x Retina PNG, or direct clipboard copy for instant sharing.
 - 🗺️ **Interactive Diagram & Hierarchy Graph**: Visual graph explorer with zoom, pan, depth-based expansion, search filtering, orientation toggle, and pure SVG / high-resolution PNG exports.
@@ -52,6 +54,11 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 1.7.0 (2026-08-19)
+- Added **Web Worker Off-Thread Parser (`worker-bridge`)**: Background worker thread for parsing and flattening large JSON responses (50MB+) without UI blocking.
+- Added **Glassmorphism Progress Loader (`ProgressLoader`)**: Animated progress card displaying live byte counters, parsing stages, and execution benchmark timers for large payloads.
+- Maintained **60fps UI Responsiveness**: Zero tab freezing or scrolling lag during heavy JSON deserialization.
 
 ### Version 1.6.0 (2026-08-18)
 - Added **Keyboard Shortcuts & Power-User Suite (`KeyboardShortcuts`)**: Full keyboard navigation across all views (`Alt/Option + 1..6`), instant search focus (`/` or `Cmd/Ctrl+F`), tree expansion (`e`/`c`), dev tools (`t`), and interactive cheatsheet modal (`?`). Full macOS `Option` key compatibility.
