@@ -4111,6 +4111,338 @@ function registerKeyboardShortcuts(handlers) {
   return () => window.removeEventListener('keydown', handleKeyDown);
 }
 
+// --- 8.9. WEB WORKER OFF-THREAD PARSER & PROGRESS LOADER (50MB+) ---
+class ProgressLoader {
+  constructor(targetContainer = document.body, initialBytes = 0) {
+    this.overlayEl = document.createElement('div');
+    this.overlayEl.className = 'pjv-progress-loader-overlay';
+
+    const formattedInitial = initialBytes > 0 ? this.formatBytes(initialBytes) : '';
+
+    this.overlayEl.innerHTML = `
+      <div class="pjv-progress-loader-card">
+        <div class="pjv-progress-loader-header">
+          <div class="pjv-progress-spinner"></div>
+          <div class="pjv-progress-title-box">
+            <h4 class="pjv-progress-title">Processing Large Payload</h4>
+            <span class="pjv-progress-subtitle" id="pjv-progress-stage">Initializing background parser worker...</span>
+          </div>
+        </div>
+
+        <div class="pjv-progress-track">
+          <div class="pjv-progress-fill" id="pjv-progress-fill" style="width: 5%;"></div>
+        </div>
+
+        <div class="pjv-progress-footer">
+          <span class="pjv-progress-details" id="pjv-progress-details">\${formattedInitial ? 'Payload: ' + formattedInitial : 'Off-thread background processing'}</span>
+          <span class="pjv-progress-percent" id="pjv-progress-percent">5%</span>
+        </div>
+      </div>
+    `;
+
+    this.stageTextEl = this.overlayEl.querySelector('#pjv-progress-stage');
+    this.percentTextEl = this.overlayEl.querySelector('#pjv-progress-percent');
+    this.progressBarFillEl = this.overlayEl.querySelector('#pjv-progress-fill');
+    this.detailsTextEl = this.overlayEl.querySelector('#pjv-progress-details');
+
+    targetContainer.appendChild(this.overlayEl);
+  }
+
+  update(progress) {
+    if (this.stageTextEl && progress.stage) {
+      this.stageTextEl.textContent = progress.stage;
+    }
+    if (this.percentTextEl && progress.percent !== undefined) {
+      this.percentTextEl.textContent = `${Math.round(progress.percent)}%`;
+    }
+    if (this.progressBarFillEl && progress.percent !== undefined) {
+      this.progressBarFillEl.style.width = `${Math.max(5, Math.min(100, progress.percent))}%`;
+    }
+    if (this.detailsTextEl && progress.bytesProcessed !== undefined && progress.totalBytes !== undefined) {
+      const processedStr = this.formatBytes(progress.bytesProcessed);
+      const totalStr = this.formatBytes(progress.totalBytes);
+      const elapsedStr = progress.elapsedMs !== undefined ? ` • ⏱️ ${progress.elapsedMs}ms` : '';
+      this.detailsTextEl.textContent = `${processedStr} / ${totalStr}${elapsedStr}`;
+    }
+  }
+
+  remove() {
+    this.overlayEl.classList.add('pjv-fade-out');
+    setTimeout(() => {
+      if (this.overlayEl && this.overlayEl.parentNode) {
+        this.overlayEl.parentNode.removeChild(this.overlayEl);
+      }
+    }, 250);
+  }
+
+  formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+}
+
+const WORKER_SCRIPT_CONTENT = `
+  self.onmessage = function(e) {
+    const data = e.data;
+    const type = data.type;
+    const startTime = performance.now();
+
+    if (type === 'PARSE_PAYLOAD') {
+      const rawText = data.rawText;
+      const defaultExpandDepth = data.defaultExpandDepth || 2;
+      const totalBytes = rawText.length;
+
+      self.postMessage({
+        type: 'PROGRESS',
+        payload: {
+          stage: 'Deserializing JSON structure...',
+          percent: 25,
+          bytesProcessed: Math.floor(totalBytes * 0.25),
+          totalBytes: totalBytes,
+          elapsedMs: Math.round(performance.now() - startTime)
+        }
+      });
+
+      let jsonObject;
+      try {
+        jsonObject = JSON.parse(rawText);
+      } catch (err) {
+        try {
+          const repaired = rawText
+            .replace(/,\\s*([\\]}])/g, '$1')
+            .replace(/'([^'\\\\]*(\\\\.[^'\\\\]*)*)'/g, '"$1"');
+          jsonObject = JSON.parse(repaired);
+        } catch (repairErr) {
+          self.postMessage({
+            type: 'ERROR',
+            error: 'Invalid JSON syntax: ' + err.message
+          });
+          return;
+        }
+      }
+
+      self.postMessage({
+        type: 'PROGRESS',
+        payload: {
+          stage: 'Analyzing hierarchy and payload metrics...',
+          percent: 60,
+          bytesProcessed: Math.floor(totalBytes * 0.6),
+          totalBytes: totalBytes,
+          elapsedMs: Math.round(performance.now() - startTime)
+        }
+      });
+
+      let totalKeys = 0;
+      let maxDepth = 1;
+      let totalObjects = 0;
+      let totalArrays = 0;
+
+      function analyze(obj, depth) {
+        if (depth > maxDepth) maxDepth = depth;
+        if (!obj || typeof obj !== 'object') return;
+
+        if (Array.isArray(obj)) {
+          totalArrays++;
+          for (let i = 0; i < obj.length; i++) {
+            analyze(obj[i], depth + 1);
+          }
+        } else {
+          totalObjects++;
+          const keys = Object.keys(obj);
+          totalKeys += keys.length;
+          for (let i = 0; i < keys.length; i++) {
+            analyze(obj[keys[i]], depth + 1);
+          }
+        }
+      }
+
+      analyze(jsonObject, 1);
+
+      self.postMessage({
+        type: 'PROGRESS',
+        payload: {
+          stage: 'Building virtual tree viewport...',
+          percent: 85,
+          bytesProcessed: Math.floor(totalBytes * 0.85),
+          totalBytes: totalBytes,
+          elapsedMs: Math.round(performance.now() - startTime)
+        }
+      });
+
+      const flatNodes = [];
+      const expandedStateMap = new Map(data.expandedEntries || []);
+
+      function getNodeType(val) {
+        if (val === null) return 'null';
+        if (Array.isArray(val)) return 'array';
+        const t = typeof val;
+        if (t === 'object') return 'object';
+        if (t === 'string') return 'string';
+        if (t === 'number') return 'number';
+        if (t === 'boolean') return 'boolean';
+        return 'string';
+      }
+
+      function detectSmart(val) {
+        if (typeof val === 'string') {
+          if (/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/.test(val)) {
+            return { type: 'date', raw: val, formatted: new Date(val).toLocaleString(), badge: '📅 Date' };
+          }
+          if (val.startsWith('http://') || val.startsWith('https://')) {
+            return { type: 'url', raw: val, badge: '🔗 URL' };
+          }
+          if (/^[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$/.test(val) && val.length > 24) {
+            return { type: 'jwt', raw: val, badge: '🔑 JWT' };
+          }
+        }
+        return null;
+      }
+
+      function traverse(val, key, parentId, depth, pathSegments) {
+        const type = getNodeType(val);
+        const hasChildren = type === 'object' || type === 'array';
+
+        let currentId = 'root';
+        let path = '$';
+
+        if (pathSegments.length > 0) {
+          const segParts = pathSegments.map(s => s.type === 'index' ? '[' + s.key + ']' : '.' + s.key);
+          path = '$' + segParts.join('');
+          currentId = pathSegments.map(s => s.key).join('.');
+        }
+
+        let childCount = 0;
+        if (type === 'array') childCount = val.length;
+        else if (type === 'object' && val !== null) childCount = Object.keys(val).length;
+
+        let isExpanded = depth <= defaultExpandDepth;
+        if (expandedStateMap.has(currentId)) {
+          isExpanded = expandedStateMap.get(currentId);
+        }
+
+        const smart = !hasChildren ? detectSmart(val) : null;
+
+        const node = {
+          id: currentId,
+          depth: depth,
+          key: key,
+          value: hasChildren ? (type === 'array' ? '[ ' + childCount + ' items ]' : '{ ' + childCount + ' items }') : val,
+          type: type,
+          path: path,
+          pathSegments: pathSegments,
+          isExpanded: hasChildren ? isExpanded : false,
+          hasChildren: hasChildren,
+          childCount: childCount,
+          parentId: parentId,
+          smart: smart
+        };
+
+        flatNodes.push(node);
+
+        if (hasChildren && isExpanded) {
+          if (type === 'array') {
+            for (let idx = 0; idx < val.length; idx++) {
+              traverse(val[idx], idx, currentId, depth + 1, pathSegments.concat({ key: idx, type: 'index' }));
+            }
+          } else if (type === 'object' && val !== null) {
+            const keys = Object.keys(val);
+            for (let i = 0; i < keys.length; i++) {
+              const k = keys[i];
+              traverse(val[k], k, currentId, depth + 1, pathSegments.concat({ key: k, type: 'property' }));
+            }
+          }
+        }
+      }
+
+      traverse(jsonObject, null, null, 1, []);
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      }
+
+      const parseTimeMs = Math.round(performance.now() - startTime);
+
+      self.postMessage({
+        type: 'COMPLETE',
+        payload: {
+          jsonObject: jsonObject,
+          flatNodes: flatNodes,
+          formattedSize: formatBytes(totalBytes),
+          maxDepth: maxDepth,
+          totalKeys: totalKeys,
+          parseTimeMs: parseTimeMs
+        }
+      });
+    }
+  };
+`;
+
+let contentWorkerInstance = null;
+
+function getContentWorker() {
+  try {
+    if (!contentWorkerInstance && typeof Blob !== 'undefined' && typeof Worker !== 'undefined') {
+      const blob = new Blob([WORKER_SCRIPT_CONTENT], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      contentWorkerInstance = new Worker(workerUrl);
+    }
+    return contentWorkerInstance;
+  } catch (err) {
+    console.warn('[Pro JSON Viewer] Content Worker creation failed, falling back to sync:', err);
+    return null;
+  }
+}
+
+async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedStateMap, onProgress) {
+  const worker = getContentWorker();
+
+  if (!worker) {
+    const startTime = performance.now();
+    const jsonObject = parseJson(rawJsonText);
+    const parseTimeMs = Math.round(performance.now() - startTime);
+    const stats = analyzePayloadStats(rawJsonText, jsonObject, parseTimeMs);
+    const flatNodes = buildFlatNodes(jsonObject, defaultExpandDepth, expandedStateMap || new Map());
+    return {
+      jsonObject,
+      flatNodes,
+      formattedSize: stats.formattedSize,
+      maxDepth: stats.maxDepth,
+      totalKeys: stats.totalKeys,
+      parseTimeMs
+    };
+  }
+
+  return new Promise((resolve, reject) => {
+    const handler = (e) => {
+      const { type, payload, error } = e.data;
+      if (type === 'PROGRESS') {
+        if (onProgress) onProgress(payload);
+      } else if (type === 'COMPLETE') {
+        worker.removeEventListener('message', handler);
+        resolve(payload);
+      } else if (type === 'ERROR') {
+        worker.removeEventListener('message', handler);
+        reject(new Error(error));
+      }
+    };
+
+    worker.addEventListener('message', handler);
+    worker.postMessage({
+      type: 'PARSE_PAYLOAD',
+      rawText: rawJsonText,
+      defaultExpandDepth,
+      expandedEntries: expandedStateMap ? Array.from(expandedStateMap.entries()) : []
+    });
+  });
+}
+
 // --- 9. APP INITIALIZATION & INJECTION ---
 const DEFAULT_SETTINGS = {
   theme: 'system',
@@ -4149,18 +4481,40 @@ window.launchProJsonScratchpad = async (container) => {
   renderApp(container, sampleJsonStr);
 };
 
-function renderApp(mountTarget, rawJsonText) {
-  const startTime = performance.now();
-  let jsonObject = parseJson(rawJsonText);
-  const parseTimeMs = performance.now() - startTime;
+async function renderApp(mountTarget, rawJsonText) {
+  const settings = await getSettings();
 
-  const payloadStats = analyzePayloadStats(rawJsonText, jsonObject, parseTimeMs);
-  const statsSummary = `📦 ${payloadStats.formattedSize} • D${payloadStats.maxDepth} • ${payloadStats.totalKeys} keys`;
+  document.documentElement.setAttribute('data-theme', settings.theme === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : settings.theme);
 
-  getSettings().then((settings) => {
-    document.documentElement.setAttribute('data-theme', settings.theme === 'system'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : settings.theme);
+  let loader = null;
+  if (rawJsonText.length > 1.5 * 1024 * 1024) {
+    loader = new ProgressLoader(document.body, rawJsonText.length);
+  }
+
+  let expandedStateMap = new Map();
+  let parseResult;
+  try {
+    parseResult = await parseJsonAsync(
+      rawJsonText,
+      settings.defaultExpandDepth,
+      expandedStateMap,
+      (progress) => {
+        if (loader) loader.update(progress);
+      }
+    );
+  } catch (err) {
+    if (loader) loader.remove();
+    console.error('Pro JSON Viewer parse error:', err);
+    return;
+  }
+
+  if (loader) loader.remove();
+
+  const jsonObject = parseResult.jsonObject;
+  let currentNodes = parseResult.flatNodes;
+  const statsSummary = `📦 \${parseResult.formattedSize} • D\${parseResult.maxDepth} • \${parseResult.totalKeys} keys`;
 
     const root = document.createElement('div');
     root.className = 'pjv-root';
@@ -4377,7 +4731,6 @@ function renderApp(mountTarget, rawJsonText) {
     });
 
     applyRender();
-  });
 }
 
 function initProJsonViewer() {
@@ -4390,14 +4743,16 @@ function initProJsonViewer() {
   const rawText = extractRawJsonText();
   if (!rawText) return;
 
-  // Validate JSON syntax before loading UI
-  try {
-    JSON.parse(rawText);
-  } catch (err) {
+  // Fast structural check for small documents
+  if (rawText.length < 500000) {
     try {
-      parseJson(rawText);
-    } catch {
-      return;
+      JSON.parse(rawText);
+    } catch (err) {
+      try {
+        parseJson(rawText);
+      } catch {
+        return;
+      }
     }
   }
 
