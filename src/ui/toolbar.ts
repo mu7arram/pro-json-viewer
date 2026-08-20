@@ -13,7 +13,7 @@ export interface ToolbarOptions {
   onCopyAll: () => void;
   onDownload: () => void;
   onOpenDiff: () => void;
-  onOpenTools?: () => void;
+  onOpenTools?: (initialTab?: 'ts' | 'zod' | 'yaml' | 'export' | 'analytics' | 'health') => void;
   onOpenShortcuts?: () => void;
   onOpenOptions: () => void;
 }
@@ -158,7 +158,7 @@ export class Toolbar {
 
     const toolsBtn = this.container.querySelector('#pjv-btn-tools');
     if (toolsBtn && opts.onOpenTools) {
-      toolsBtn.addEventListener('click', () => opts.onOpenTools!());
+      toolsBtn.addEventListener('click', () => opts.onOpenTools!('ts'));
     }
 
     const shortcutsBtn = this.container.querySelector('#pjv-btn-shortcuts');
@@ -168,7 +168,7 @@ export class Toolbar {
 
     const statsBadge = this.container.querySelector('#pjv-badge-stats');
     if (statsBadge && opts.onOpenTools) {
-      statsBadge.addEventListener('click', () => opts.onOpenTools!());
+      statsBadge.addEventListener('click', () => opts.onOpenTools!('analytics'));
     }
 
     this.container.querySelector('#pjv-btn-copy')!.addEventListener('click', () => opts.onCopyAll());

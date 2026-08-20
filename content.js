@@ -827,7 +827,7 @@ class Toolbar {
 
     const toolsBtn = this.container.querySelector('#pjv-btn-tools');
     if (toolsBtn && opts.onOpenTools) {
-      toolsBtn.onclick = () => opts.onOpenTools();
+      toolsBtn.onclick = () => opts.onOpenTools('ts');
     }
 
     const shortcutsBtn = this.container.querySelector('#pjv-btn-shortcuts');
@@ -837,7 +837,7 @@ class Toolbar {
 
     const statsBadge = this.container.querySelector('#pjv-badge-stats');
     if (statsBadge && opts.onOpenTools) {
-      statsBadge.onclick = () => opts.onOpenTools();
+      statsBadge.onclick = () => opts.onOpenTools('analytics');
     }
 
     this.container.querySelector('#pjv-btn-copy').onclick = () => opts.onCopyAll();
@@ -3658,6 +3658,313 @@ function jsonToCsv(data) {
   return escapeCsvCell(data);
 }
 
+function getSpecificType(val) {
+  if (val === null) return 'null';
+  if (Array.isArray(val)) return 'array';
+  const t = typeof val;
+  if (t === 'object') return 'object';
+  if (t === 'number') return Number.isInteger(val) ? 'integer' : 'float';
+  if (t === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?/.test(val)) return 'date-string';
+    if (/^https?:\/\//.test(val)) return 'url-string';
+    return 'string';
+  }
+  return t;
+}
+
+function findArrayCollections(data, path = '$', maxCollections = 20) {
+  const collections = [];
+
+  function traverse(node, currentPath) {
+    if (collections.length >= maxCollections) return;
+    if (!node || typeof node !== 'object') return;
+
+    if (Array.isArray(node)) {
+      if (node.length > 0 && typeof node[0] === 'object' && node[0] !== null) {
+        const segs = currentPath.split('.');
+        const name = segs[segs.length - 1] || 'Root Items';
+        collections.push({ path: currentPath, name, array: node });
+      }
+      for (let i = 0; i < Math.min(node.length, 50); i++) {
+        traverse(node[i], `${currentPath}[${i}]`);
+      }
+    } else {
+      const keys = Object.keys(node);
+      for (const k of keys) {
+        traverse(node[k], currentPath === '$' ? `$.${k}` : `${currentPath}.${k}`);
+      }
+    }
+  }
+
+  traverse(data, path);
+
+  if (Array.isArray(data) && collections.length === 0 && data.length > 0) {
+    collections.push({ path: '$', name: 'Root Array', array: data });
+  }
+
+  return collections;
+}
+
+function auditCollectionHealth(collection) {
+  const items = collection.array.filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+  const totalRecords = items.length;
+
+  if (totalRecords === 0) {
+    return {
+      collectionPath: collection.path,
+      collectionName: collection.name,
+      totalRecords: 0,
+      healthScore: 100,
+      fields: [],
+      anomalies: [],
+      summary: {
+        totalFields: 0,
+        healthyFields: 0,
+        inconsistentFields: 0,
+        missingFields: 0,
+        avgNullRate: 0
+      }
+    };
+  }
+
+  const fieldKeyFrequency = {};
+  const fieldNullFrequency = {};
+  const fieldEmptyFrequency = {};
+  const fieldTypeFrequency = {};
+
+  items.forEach((row) => {
+    const keysInRow = Object.keys(row);
+    keysInRow.forEach((key) => {
+      fieldKeyFrequency[key] = (fieldKeyFrequency[key] || 0) + 1;
+      const val = row[key];
+
+      if (val === null || val === undefined) {
+        fieldNullFrequency[key] = (fieldNullFrequency[key] || 0) + 1;
+      } else if (val === '') {
+        fieldEmptyFrequency[key] = (fieldEmptyFrequency[key] || 0) + 1;
+      }
+
+      const specificType = getSpecificType(val);
+      if (!fieldTypeFrequency[key]) fieldTypeFrequency[key] = {};
+      fieldTypeFrequency[key][specificType] = (fieldTypeFrequency[key][specificType] || 0) + 1;
+    });
+  });
+
+  const allFieldNames = Object.keys(fieldKeyFrequency).sort();
+  const fieldsMetrics = [];
+  const anomalies = [];
+
+  let inconsistentFieldsCount = 0;
+  let missingFieldsCount = 0;
+  let totalNullRatesSum = 0;
+
+  allFieldNames.forEach((fieldName) => {
+    const presentCount = fieldKeyFrequency[fieldName] || 0;
+    const presenceRate = Math.round((presentCount / totalRecords) * 100);
+    const nullCount = fieldNullFrequency[fieldName] || 0;
+    const nullRate = Math.round((nullCount / totalRecords) * 100);
+    const emptyCount = fieldEmptyFrequency[fieldName] || 0;
+    totalNullRatesSum += nullRate;
+
+    const typeMap = fieldTypeFrequency[fieldName] || {};
+    const typesObserved = Object.keys(typeMap).map((t) => ({
+      type: t,
+      count: typeMap[t],
+      percentage: Math.round((typeMap[t] / presentCount) * 100)
+    })).sort((a, b) => b.count - a.count);
+
+    const primaryType = typesObserved[0]?.type || 'unknown';
+    const nonNullTypes = typesObserved.filter((t) => t.type !== 'null');
+    const isTypeInconsistent = nonNullTypes.length > 1;
+    const isMissingRequired = presenceRate < 100 && presenceRate >= 50;
+
+    const issues = [];
+    let status = 'healthy';
+
+    if (isTypeInconsistent) {
+      status = 'anomaly';
+      inconsistentFieldsCount++;
+      const typeSummary = nonNullTypes.map((t) => `${t.type} (${t.percentage}%)`).join(' vs ');
+      issues.push(`Polymorphic type drift: ${typeSummary}`);
+    }
+
+    if (presenceRate < 100) {
+      const missingCount = totalRecords - presentCount;
+      if (isMissingRequired) {
+        status = status === 'anomaly' ? 'anomaly' : 'warning';
+        missingFieldsCount++;
+        issues.push(`Missing in ${missingCount} records (${100 - presenceRate}% omitted)`);
+      } else {
+        issues.push(`Sparse / optional property (${presentCount}/${totalRecords} records)`);
+      }
+    }
+
+    if (nullRate >= 30) {
+      issues.push(`High null-rate: ${nullRate}% of rows are null`);
+      if (status === 'healthy') status = 'warning';
+    }
+
+    fieldsMetrics.push({
+      name: fieldName,
+      presenceCount: presentCount,
+      presenceRate,
+      nullCount,
+      nullRate,
+      emptyCount,
+      typesObserved,
+      primaryType,
+      isTypeInconsistent,
+      isMissingRequired,
+      status,
+      issues
+    });
+
+    if (isTypeInconsistent || isMissingRequired) {
+      items.forEach((row, idx) => {
+        const rowId = row.id || row._id || row.name || row.uuid || `#${idx + 1}`;
+        if (!(fieldName in row)) {
+          if (isMissingRequired) {
+            anomalies.push({
+              rowIndex: idx,
+              rowIdentifier: String(rowId),
+              field: fieldName,
+              issueType: 'missing_field',
+              description: `Missing field "${fieldName}" (expected in dominant schema)`
+            });
+          }
+        } else {
+          const val = row[fieldName];
+          const valType = getSpecificType(val);
+          if (valType !== 'null' && valType !== nonNullTypes[0]?.type) {
+            anomalies.push({
+              rowIndex: idx,
+              rowIdentifier: String(rowId),
+              field: fieldName,
+              issueType: 'type_inconsistency',
+              description: `Type mismatch on "${fieldName}": got ${valType}, expected ${nonNullTypes[0]?.type}`,
+              observedValue: val
+            });
+          }
+        }
+      });
+    }
+  });
+
+  const totalFields = allFieldNames.length;
+  let score = 100;
+
+  if (totalFields > 0) {
+    const inconsistencyPenalty = (inconsistentFieldsCount / totalFields) * 45;
+    const missingPenalty = (missingFieldsCount / totalFields) * 35;
+    const avgNull = totalNullRatesSum / totalFields;
+    const nullPenalty = (avgNull / 100) * 20;
+
+    score = Math.max(10, Math.min(100, Math.round(100 - inconsistencyPenalty - missingPenalty - nullPenalty)));
+  }
+
+  const healthyFieldsCount = fieldsMetrics.filter((f) => f.status === 'healthy').length;
+  const avgNullRate = totalFields > 0 ? Math.round(totalNullRatesSum / totalFields) : 0;
+
+  return {
+    collectionPath: collection.path,
+    collectionName: collection.name,
+    totalRecords,
+    healthScore: score,
+    fields: fieldsMetrics,
+    anomalies: anomalies.slice(0, 100),
+    summary: {
+      totalFields,
+      healthyFields: healthyFieldsCount,
+      inconsistentFields: inconsistentFieldsCount,
+      missingFields: missingFieldsCount,
+      avgNullRate
+    }
+  };
+}
+
+function analyzePayloadSchemaHealth(data) {
+  const collections = findArrayCollections(data);
+
+  if (collections.length === 0) {
+    if (data && typeof data === 'object') {
+      const singleItemCollection = [{ path: '$', name: 'Root Object', array: [data] }];
+      const report = auditCollectionHealth(singleItemCollection[0]);
+      return {
+        overallHealthScore: 100,
+        status: 'excellent',
+        totalCollectionsAudited: 1,
+        totalAnomaliesCount: 0,
+        collections: [report]
+      };
+    }
+
+    return {
+      overallHealthScore: 100,
+      status: 'excellent',
+      totalCollectionsAudited: 0,
+      totalAnomaliesCount: 0,
+      collections: []
+    };
+  }
+
+  const collectionReports = collections.map(auditCollectionHealth);
+  const totalAnomalies = collectionReports.reduce((sum, c) => sum + c.anomalies.length, 0);
+
+  const avgScore = Math.round(
+    collectionReports.reduce((sum, c) => sum + c.healthScore, 0) / collectionReports.length
+  );
+
+  let status = 'excellent';
+  if (avgScore < 60) status = 'critical';
+  else if (avgScore < 80) status = 'warning';
+  else if (avgScore < 95) status = 'good';
+
+  return {
+    overallHealthScore: avgScore,
+    status,
+    totalCollectionsAudited: collectionReports.length,
+    totalAnomaliesCount: totalAnomalies,
+    collections: collectionReports
+  };
+}
+
+function generateSchemaHealthMarkdown(report) {
+  let md = `# 🩺 Pro JSON Viewer — Schema Health & Anomaly Audit Report\n\n`;
+  md += `**Overall Health Score**: **${report.overallHealthScore}%** (${report.status.toUpperCase()})\n`;
+  md += `**Collections Audited**: ${report.totalCollectionsAudited} | **Total Anomalies**: ${report.totalAnomaliesCount}\n\n`;
+  md += `---\n\n`;
+
+  report.collections.forEach((col) => {
+    md += `## 📦 Collection: \`${col.collectionPath}\` (${col.collectionName})\n`;
+    md += `- **Records**: ${col.totalRecords} rows\n`;
+    md += `- **Health Score**: ${col.healthScore}%\n`;
+    md += `- **Fields**: ${col.summary.totalFields} total (${col.summary.healthyFields} healthy, ${col.summary.inconsistentFields} type drift, ${col.summary.missingFields} missing)\n\n`;
+
+    md += `| Field | Presence Rate | Null Rate | Observed Types | Status |\n`;
+    md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+
+    col.fields.forEach((f) => {
+      const typeStr = f.typesObserved.map((t) => `${t.type} (${t.percentage}%)`).join(', ');
+      const statusIcon = f.status === 'healthy' ? '✅ Clean' : f.status === 'warning' ? '⚠️ Warning' : '🚨 Anomaly';
+      md += `| \`${f.name}\` | ${f.presenceRate}% (${f.presenceCount}/${col.totalRecords}) | ${f.nullRate}% | ${typeStr} | ${statusIcon} |\n`;
+    });
+
+    if (col.anomalies.length > 0) {
+      md += `\n### 🚨 Detected Anomalies (${col.anomalies.length}):\n`;
+      col.anomalies.slice(0, 15).forEach((anom, idx) => {
+        md += `${idx + 1}. **Row [${anom.rowIndex}] (${anom.rowIdentifier || 'Record'})**: ${anom.description}\n`;
+      });
+      if (col.anomalies.length > 15) {
+        md += `*...and ${col.anomalies.length - 15} more anomalies.*\n`;
+      }
+    }
+    md += `\n---\n\n`;
+  });
+
+  md += `*Generated automatically with Pro JSON Viewer.*`;
+  return md;
+}
+
 function downloadFile(filename, content, mimeType) {
   const blob = new Blob([content], { type: `${mimeType};charset=utf-8;` });
   const url = URL.createObjectURL(blob);
@@ -3671,7 +3978,7 @@ function downloadFile(filename, content, mimeType) {
 }
 
 function openToolsModal(options) {
-  const { data, rawText = '', parseTimeMs = 0, onToast } = options;
+  const { data, rawText = '', parseTimeMs = 0, onToast, initialTab = 'ts' } = options;
 
   const backdrop = document.createElement('div');
   backdrop.className = 'pjv-modal-backdrop';
@@ -3680,7 +3987,8 @@ function openToolsModal(options) {
   modal.className = 'pjv-modal pjv-tools-modal';
 
   const stats = analyzePayloadStats(rawText, data, parseTimeMs);
-  let activeTab = 'ts';
+  let activeTab = initialTab;
+  let activeCollectionIdx = 0;
 
   const renderContent = () => {
     modal.innerHTML = `
@@ -3698,6 +4006,7 @@ function openToolsModal(options) {
         <button class="pjv-tools-tab-btn ${activeTab === 'yaml' ? 'active' : ''}" data-tab="yaml">📗 YAML</button>
         <button class="pjv-tools-tab-btn ${activeTab === 'export' ? 'active' : ''}" data-tab="export">💾 Export</button>
         <button class="pjv-tools-tab-btn ${activeTab === 'analytics' ? 'active' : ''}" data-tab="analytics">📊 Analytics</button>
+        <button class="pjv-tools-tab-btn ${activeTab === 'health' ? 'active' : ''}" data-tab="health">🩺 Schema Health</button>
       </div>
 
       <div id="pjv-tools-body" class="pjv-tools-body"></div>
@@ -3761,7 +4070,7 @@ function openToolsModal(options) {
       };
 
       bodyEl.querySelector('#pjv-btn-dl-zod').onclick = () => {
-        downloadFile(`zod-schema-${Date.now()}.ts`, zodCode, 'application/typescript');
+        downloadFile(`schema-${Date.now()}.ts`, zodCode, 'application/typescript');
         if (onToast) onToast('Downloaded Zod schema file!');
       };
 
@@ -3770,7 +4079,7 @@ function openToolsModal(options) {
       bodyEl.innerHTML = `
         <div class="pjv-tools-panel">
           <div class="pjv-tools-toolbar">
-            <span class="pjv-tools-hint">Converted clean YAML representation:</span>
+            <span class="pjv-tools-hint">Clean formatted YAML conversion:</span>
             <div style="display:flex; gap:8px;">
               <button id="pjv-btn-copy-yaml" class="pjv-btn active">📋 Copy YAML</button>
               <button id="pjv-btn-dl-yaml" class="pjv-btn">📥 Download .yaml</button>
@@ -3791,68 +4100,76 @@ function openToolsModal(options) {
       };
 
     } else if (activeTab === 'export') {
+      const prettyJson = JSON.stringify(data, null, 2);
+      const minJson = JSON.stringify(data);
+      const yamlStr = jsonToYaml(data);
+      const csvStr = jsonToCsv(data);
+
       bodyEl.innerHTML = `
-        <div class="pjv-tools-panel" style="gap:16px;">
-          <span class="pjv-tools-hint">Export payload into multiple developer-ready formats:</span>
+        <div class="pjv-tools-panel">
+          <span class="pjv-tools-hint">One-click exports and data format conversions:</span>
           <div class="pjv-export-grid">
             <div class="pjv-export-card">
-              <div class="pjv-export-title">📄 Formatted JSON</div>
-              <div class="pjv-export-desc">Standard 2-space indented pretty-printed JSON file.</div>
-              <div style="display:flex; gap:8px; margin-top:8px;">
-                <button id="pjv-dl-json-pretty" class="pjv-btn active">📥 Download .json</button>
-                <button id="pjv-copy-json-pretty" class="pjv-btn">📋 Copy</button>
+              <div class="pjv-export-info">
+                <h4>📄 Formatted JSON</h4>
+                <p>Human-readable indented JSON payload</p>
+              </div>
+              <div class="pjv-btn-group">
+                <button id="pjv-copy-fmt-json" class="pjv-btn">📋 Copy</button>
+                <button id="pjv-dl-fmt-json" class="pjv-btn active">📥 Download</button>
               </div>
             </div>
 
             <div class="pjv-export-card">
-              <div class="pjv-export-title">⚡ Minified JSON</div>
-              <div class="pjv-export-desc">Compact single-line JSON with whitespace stripped.</div>
-              <div style="display:flex; gap:8px; margin-top:8px;">
-                <button id="pjv-dl-json-min" class="pjv-btn active">📥 Download .min.json</button>
-                <button id="pjv-copy-json-min" class="pjv-btn">📋 Copy</button>
+              <div class="pjv-export-info">
+                <h4>⚡ Minified JSON</h4>
+                <p>Compact, single-line payload with zero whitespace</p>
+              </div>
+              <div class="pjv-btn-group">
+                <button id="pjv-copy-min-json" class="pjv-btn">📋 Copy</button>
+                <button id="pjv-dl-min-json" class="pjv-btn active">📥 Download</button>
               </div>
             </div>
 
             <div class="pjv-export-card">
-              <div class="pjv-export-title">📗 Clean YAML</div>
-              <div class="pjv-export-desc">Clean human-readable YAML document for config/APIs.</div>
-              <div style="display:flex; gap:8px; margin-top:8px;">
-                <button id="pjv-dl-yaml-exp" class="pjv-btn active">📥 Download .yaml</button>
+              <div class="pjv-export-info">
+                <h4>📗 YAML Document</h4>
+                <p>Clean YAML representation of document structure</p>
+              </div>
+              <div class="pjv-btn-group">
                 <button id="pjv-copy-yaml-exp" class="pjv-btn">📋 Copy</button>
+                <button id="pjv-dl-yaml-exp" class="pjv-btn active">📥 Download</button>
               </div>
             </div>
 
             <div class="pjv-export-card">
-              <div class="pjv-export-title">📊 CSV Spreadsheet</div>
-              <div class="pjv-export-desc">RFC 4180 CSV spreadsheet table from primary array data.</div>
-              <div style="display:flex; gap:8px; margin-top:8px;">
-                <button id="pjv-dl-csv-exp" class="pjv-btn active">📥 Download .csv</button>
+              <div class="pjv-export-info">
+                <h4>📊 RFC 4180 CSV</h4>
+                <p>Spreadsheet export of primary array collections</p>
+              </div>
+              <div class="pjv-btn-group">
                 <button id="pjv-copy-csv-exp" class="pjv-btn">📋 Copy</button>
+                <button id="pjv-dl-csv-exp" class="pjv-btn active">📥 Download</button>
               </div>
             </div>
           </div>
         </div>
       `;
 
-      const prettyJson = JSON.stringify(data, null, 2);
-      const minJson = JSON.stringify(data);
-      const yamlStr = jsonToYaml(data);
-      const csvStr = jsonToCsv(data);
-
-      bodyEl.querySelector('#pjv-dl-json-pretty').onclick = () => {
-        downloadFile(`payload-pretty-${Date.now()}.json`, prettyJson, 'application/json');
+      bodyEl.querySelector('#pjv-dl-fmt-json').onclick = () => {
+        downloadFile(`payload-formatted-${Date.now()}.json`, prettyJson, 'application/json');
         if (onToast) onToast('Downloaded formatted JSON!');
       };
-      bodyEl.querySelector('#pjv-copy-json-pretty').onclick = () => {
+      bodyEl.querySelector('#pjv-copy-fmt-json').onclick = () => {
         copyToClipboard(prettyJson);
-        if (onToast) onToast('Copied formatted JSON!');
+        if (onToast) onToast('Copied JSON!');
       };
 
-      bodyEl.querySelector('#pjv-dl-json-min').onclick = () => {
-        downloadFile(`payload-min-${Date.now()}.json`, minJson, 'application/json');
+      bodyEl.querySelector('#pjv-dl-min-json').onclick = () => {
+        downloadFile(`payload-minified-${Date.now()}.json`, minJson, 'application/json');
         if (onToast) onToast('Downloaded minified JSON!');
       };
-      bodyEl.querySelector('#pjv-copy-json-min').onclick = () => {
+      bodyEl.querySelector('#pjv-copy-min-json').onclick = () => {
         copyToClipboard(minJson);
         if (onToast) onToast('Copied minified JSON!');
       };
@@ -3912,6 +4229,191 @@ function openToolsModal(options) {
           </div>
         </div>
       `;
+    } else if (activeTab === 'health') {
+      const healthReport = analyzePayloadSchemaHealth(data);
+      const activeCol = healthReport.collections[activeCollectionIdx] || healthReport.collections[0];
+
+      let collectionSelectorHtml = '';
+      if (healthReport.collections.length > 1) {
+        collectionSelectorHtml = `
+          <div class="pjv-health-collections-nav">
+            <span style="font-size:12px; color:var(--pjv-text-muted); font-weight:600;">Collections:</span>
+            ${healthReport.collections.map((col, idx) => `
+              <button class="pjv-btn ${idx === activeCollectionIdx ? 'active' : ''}" data-col-idx="${idx}">
+                ${escapeHtml(col.name)} (${col.totalRecords} rows)
+              </button>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      let statusBadgeClass = 'pjv-health-badge-excellent';
+      let statusIcon = '🟢';
+      if (healthReport.status === 'good') { statusBadgeClass = 'pjv-health-badge-good'; statusIcon = '🟢'; }
+      else if (healthReport.status === 'warning') { statusBadgeClass = 'pjv-health-badge-warning'; statusIcon = '🟡'; }
+      else if (healthReport.status === 'critical') { statusBadgeClass = 'pjv-health-badge-critical'; statusIcon = '🔴'; }
+
+      let tableRowsHtml = '';
+      if (activeCol && activeCol.fields.length > 0) {
+        tableRowsHtml = activeCol.fields.map((f) => {
+          const typeBadges = f.typesObserved.map((t) =>
+            `<span class="pjv-type-badge ${t.type !== f.primaryType ? 'inconsistent' : ''}">${t.type} (${t.percentage}%)</span>`
+          ).join(' ');
+
+          const statusBadge = f.status === 'healthy'
+            ? `<span class="pjv-status-pill healthy">✅ Clean</span>`
+            : f.status === 'warning'
+            ? `<span class="pjv-status-pill warning">⚠️ Sparse</span>`
+            : `<span class="pjv-status-pill anomaly">🚨 Type Drift</span>`;
+
+          const presenceColor = f.presenceRate === 100 ? 'var(--pjv-accent, #22c55e)' : f.presenceRate >= 70 ? '#f59e0b' : '#ef4444';
+          const nullColor = f.nullRate === 0 ? 'var(--pjv-text-muted)' : f.nullRate > 25 ? '#ef4444' : '#f59e0b';
+
+          return `
+            <tr>
+              <td>
+                <strong style="color:var(--pjv-syntax-key); font-family:var(--pjv-font-mono, monospace);">${escapeHtml(f.name)}</strong>
+                ${f.issues.length > 0 ? `<div style="font-size:11px; color:var(--pjv-text-muted); margin-top:2px;">${escapeHtml(f.issues.join('; '))}</div>` : ''}
+              </td>
+              <td>
+                <div class="pjv-health-bar-container">
+                  <div class="pjv-health-bar-fill" style="width:${f.presenceRate}%; background:${presenceColor};"></div>
+                </div>
+                <span style="font-size:11px; font-family:var(--pjv-font-mono, monospace); color:${presenceColor}; font-weight:600;">${f.presenceRate}% (${f.presenceCount}/${activeCol.totalRecords})</span>
+              </td>
+              <td>
+                <span style="font-size:11.5px; font-family:var(--pjv-font-mono, monospace); color:${nullColor}; font-weight:600;">${f.nullRate}%</span>
+                <span style="font-size:10.5px; color:var(--pjv-text-muted);">(${f.nullCount} rows)</span>
+              </td>
+              <td>
+                <div style="display:flex; flex-wrap:wrap; gap:4px;">${typeBadges}</div>
+              </td>
+              <td style="text-align:right;">${statusBadge}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      let anomaliesListHtml = '';
+      if (activeCol && activeCol.anomalies.length > 0) {
+        anomaliesListHtml = `
+          <div class="pjv-health-anomalies-section">
+            <h4 style="margin:12px 0 8px 0; font-size:13px; color:#f87171; display:flex; align-items:center; gap:6px;">
+              <span>🚨</span> Detected Schema Anomalies (${activeCol.anomalies.length})
+            </h4>
+            <div class="pjv-anomalies-list">
+              ${activeCol.anomalies.slice(0, 20).map((a) => `
+                <div class="pjv-anomaly-item">
+                  <span class="pjv-anomaly-row">Row [${a.rowIndex}] (${escapeHtml(a.rowIdentifier || 'Record')})</span>
+                  <span class="pjv-anomaly-desc">${escapeHtml(a.description)}</span>
+                  ${a.observedValue !== undefined ? `<code class="pjv-anomaly-val">${escapeHtml(JSON.stringify(a.observedValue))}</code>` : ''}
+                </div>
+              `).join('')}
+              ${activeCol.anomalies.length > 20 ? `<div style="font-size:11px; color:var(--pjv-text-muted); padding:4px;">...and ${activeCol.anomalies.length - 20} more anomalies.</div>` : ''}
+            </div>
+          </div>
+        `;
+      }
+
+      bodyEl.innerHTML = `
+        <div class="pjv-tools-panel pjv-schema-health-panel">
+          <div class="pjv-health-score-banner ${statusBadgeClass}">
+            <div class="pjv-health-banner-left">
+              <div class="pjv-health-score-dial">
+                <span class="health-score-num">${healthReport.overallHealthScore}%</span>
+                <span class="health-score-sub">Health Score</span>
+              </div>
+              <div class="pjv-health-banner-info">
+                <h4 style="margin:0 0 4px 0; font-size:15px; color:var(--pjv-text-main); display:flex; align-items:center; gap:6px;">
+                  <span>${statusIcon}</span> ${healthReport.status.toUpperCase()} — Schema Health
+                </h4>
+                <p style="margin:0; font-size:12px; color:var(--pjv-text-muted);">
+                  Audited ${healthReport.totalCollectionsAudited} collection(s) across payload. Found ${healthReport.totalAnomaliesCount} schema anomaly occurrences.
+                </p>
+              </div>
+            </div>
+            <div class="pjv-health-banner-actions">
+              <button id="pjv-btn-copy-health-report" class="pjv-btn active">📋 Copy Report</button>
+              <button id="pjv-btn-dl-health-report" class="pjv-btn">📥 Download Summary</button>
+            </div>
+          </div>
+
+          ${collectionSelectorHtml}
+
+          ${activeCol ? `
+            <div class="pjv-health-summary-row">
+              <div class="pjv-health-stat-chip">
+                <span class="label">📦 Target Path</span>
+                <span class="val">${escapeHtml(activeCol.collectionPath)}</span>
+              </div>
+              <div class="pjv-health-stat-chip">
+                <span class="label">📋 Records</span>
+                <span class="val">${activeCol.totalRecords} rows</span>
+              </div>
+              <div class="pjv-health-stat-chip">
+                <span class="label">✅ Clean Fields</span>
+                <span class="val">${activeCol.summary.healthyFields} / ${activeCol.summary.totalFields}</span>
+              </div>
+              <div class="pjv-health-stat-chip">
+                <span class="label">🚨 Type Inconsistencies</span>
+                <span class="val" style="color:${activeCol.summary.inconsistentFields > 0 ? '#ef4444' : 'inherit'};">${activeCol.summary.inconsistentFields}</span>
+              </div>
+              <div class="pjv-health-stat-chip">
+                <span class="label">⚠️ Missing In Some Rows</span>
+                <span class="val" style="color:${activeCol.summary.missingFields > 0 ? '#f59e0b' : 'inherit'};">${activeCol.summary.missingFields}</span>
+              </div>
+            </div>
+
+            <div class="pjv-health-table-wrapper">
+              <table class="pjv-health-table">
+                <thead>
+                  <tr>
+                    <th>Property Name</th>
+                    <th>Presence Rate</th>
+                    <th>Null Rate</th>
+                    <th>Observed Types</th>
+                    <th style="text-align:right;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRowsHtml}
+                </tbody>
+              </table>
+            </div>
+
+            ${anomaliesListHtml}
+          ` : `
+            <div style="padding:24px; text-align:center; color:var(--pjv-text-muted);">
+              No array collections found in current payload. Schema is single object structure.
+            </div>
+          `}
+        </div>
+      `;
+
+      bodyEl.querySelectorAll('.pjv-health-collections-nav button').forEach((btn) => {
+        btn.onclick = () => {
+          activeCollectionIdx = Number(btn.dataset.colIdx);
+          renderContent();
+        };
+      });
+
+      const copyBtn = bodyEl.querySelector('#pjv-btn-copy-health-report');
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          const md = generateSchemaHealthMarkdown(healthReport);
+          copyToClipboard(md);
+          if (onToast) onToast('Copied Schema Health audit report to clipboard!');
+        };
+      }
+
+      const dlBtn = bodyEl.querySelector('#pjv-btn-dl-health-report');
+      if (dlBtn) {
+        dlBtn.onclick = () => {
+          const md = generateSchemaHealthMarkdown(healthReport);
+          downloadFile(`schema-health-audit-${Date.now()}.md`, md, 'text/markdown');
+          if (onToast) onToast('Downloaded Schema Health report!');
+        };
+      }
     }
   };
 
@@ -4385,25 +4887,33 @@ const WORKER_SCRIPT_CONTENT = `
 `;
 
 let contentWorkerInstance = null;
+let isContentWorkerBlockedByCsp = false;
 
 function getContentWorker() {
+  if (isContentWorkerBlockedByCsp) return null;
   try {
     if (!contentWorkerInstance && typeof Blob !== 'undefined' && typeof Worker !== 'undefined') {
       const blob = new Blob([WORKER_SCRIPT_CONTENT], { type: 'application/javascript' });
       const workerUrl = URL.createObjectURL(blob);
       contentWorkerInstance = new Worker(workerUrl);
+      contentWorkerInstance.onerror = () => {
+        isContentWorkerBlockedByCsp = true;
+        if (contentWorkerInstance) {
+          try { contentWorkerInstance.terminate(); } catch {}
+          contentWorkerInstance = null;
+        }
+      };
     }
     return contentWorkerInstance;
-  } catch (err) {
-    console.warn('[Pro JSON Viewer] Content Worker creation failed, falling back to sync:', err);
+  } catch {
+    isContentWorkerBlockedByCsp = true;
+    contentWorkerInstance = null;
     return null;
   }
 }
 
 async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedStateMap, onProgress) {
-  const worker = getContentWorker();
-
-  if (!worker) {
+  const runSyncFallback = () => {
     const startTime = performance.now();
     const jsonObject = parseJson(rawJsonText);
     const parseTimeMs = Math.round(performance.now() - startTime);
@@ -4417,29 +4927,77 @@ async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedState
       totalKeys: stats.totalKeys,
       parseTimeMs
     };
+  };
+
+  // Payloads under 1MB are fast enough to parse synchronously (<10ms) without triggering CSP warnings
+  if (rawJsonText.length < 1024 * 1024 || isContentWorkerBlockedByCsp) {
+    return runSyncFallback();
   }
 
-  return new Promise((resolve, reject) => {
-    const handler = (e) => {
-      const { type, payload, error } = e.data;
+  const worker = getContentWorker();
+  if (!worker) {
+    return runSyncFallback();
+  }
+
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const cleanup = () => {
+      worker.removeEventListener('message', messageHandler);
+      worker.removeEventListener('error', errorHandler);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
+
+    const finishWithSync = () => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      isContentWorkerBlockedByCsp = true;
+      if (contentWorkerInstance) {
+        try { contentWorkerInstance.terminate(); } catch {}
+        contentWorkerInstance = null;
+      }
+      resolve(runSyncFallback());
+    };
+
+    const messageHandler = (e) => {
+      if (resolved) return;
+      const { type, payload } = e.data || {};
       if (type === 'PROGRESS') {
         if (onProgress) onProgress(payload);
       } else if (type === 'COMPLETE') {
-        worker.removeEventListener('message', handler);
+        resolved = true;
+        cleanup();
         resolve(payload);
       } else if (type === 'ERROR') {
-        worker.removeEventListener('message', handler);
-        reject(new Error(error));
+        finishWithSync();
       }
     };
 
-    worker.addEventListener('message', handler);
-    worker.postMessage({
-      type: 'PARSE_PAYLOAD',
-      rawText: rawJsonText,
-      defaultExpandDepth,
-      expandedEntries: expandedStateMap ? Array.from(expandedStateMap.entries()) : []
-    });
+    const errorHandler = () => {
+      finishWithSync();
+    };
+
+    // If CSP silently prevents worker execution, fallback after 500ms
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        finishWithSync();
+      }
+    }, 500);
+
+    worker.addEventListener('message', messageHandler);
+    worker.addEventListener('error', errorHandler);
+
+    try {
+      worker.postMessage({
+        type: 'PARSE_PAYLOAD',
+        rawText: rawJsonText,
+        defaultExpandDepth,
+        expandedEntries: expandedStateMap ? Array.from(expandedStateMap.entries()) : []
+      });
+    } catch {
+      finishWithSync();
+    }
   });
 }
 
@@ -4514,7 +5072,8 @@ async function renderApp(mountTarget, rawJsonText) {
 
   const jsonObject = parseResult.jsonObject;
   let currentNodes = parseResult.flatNodes;
-  const statsSummary = `📦 \${parseResult.formattedSize} • D\${parseResult.maxDepth} • \${parseResult.totalKeys} keys`;
+  const parseTimeMs = parseResult.parseTimeMs || 0;
+  const statsSummary = `📦 ${parseResult.formattedSize} • D${parseResult.maxDepth} • ${parseResult.totalKeys} keys`;
 
     const root = document.createElement('div');
     root.className = 'pjv-root';
@@ -4555,8 +5114,6 @@ async function renderApp(mountTarget, rawJsonText) {
       setTimeout(() => toastEl.classList.remove('show'), 2000);
     };
 
-    let expandedStateMap = new Map();
-    let currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
     let activeQuery = '';
     let activeMode = 'text';
     let tableView = null;
@@ -4670,12 +5227,13 @@ async function renderApp(mountTarget, rawJsonText) {
           }
         });
       },
-      onOpenTools: () => {
+      onOpenTools: (initialTab) => {
         openToolsModal({
           data: jsonObject,
           rawText: rawJsonText,
           parseTimeMs,
-          onToast: showToast
+          onToast: showToast,
+          initialTab
         });
       },
       onOpenShortcuts: () => {
