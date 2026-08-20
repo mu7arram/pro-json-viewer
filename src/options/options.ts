@@ -1,3 +1,4 @@
+import { analyzePayloadStats } from '../engine/schema-generator';
 import { getSettings, saveSettings } from '../shared/storage';
 import { copyToClipboard } from '../shared/utils';
 import { buildFlatNodes } from '../engine/parser';
@@ -114,7 +115,8 @@ async function launchScratchpad(container: HTMLElement) {
 
   if (loader) loader.remove();
 
-  const jsonObject = parseResult.jsonObject;
+  let jsonObject = parseResult.jsonObject;
+  let currentJsonText = sampleJsonStr;
   let currentNodes: FlatNode[] = parseResult.flatNodes;
   const parseTimeMs = parseResult.parseTimeMs || 0;
   const statsSummary = `📦 ${parseResult.formattedSize} • D${parseResult.maxDepth} • ${parseResult.totalKeys} keys`;
@@ -184,6 +186,31 @@ async function launchScratchpad(container: HTMLElement) {
     treeView.setNodes(currentNodes, matchedIds);
   };
 
+  const syncRawToData = () => {
+    if (rawContainer.value.trim() && rawContainer.value !== currentJsonText) {
+      try {
+        const updated = JSON.parse(rawContainer.value);
+        jsonObject = updated;
+        currentJsonText = rawContainer.value;
+        expandedStateMap.clear();
+        currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+        applyRender();
+
+        const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
+        const statsEl = toolbarContainer.querySelector('#pjv-badge-stats');
+        if (statsEl) {
+          statsEl.textContent = `📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`;
+        }
+
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+          chrome.storage.local.set({ pjv_scratchpad_json: currentJsonText });
+        }
+      } catch (err: any) {
+        showToast(`⚠️ Syntax error in Raw JSON: ${err.message}`);
+      }
+    }
+  };
+
   const toolbar = new Toolbar({
     container: toolbarContainer,
     currentTheme: settings.theme,
@@ -195,6 +222,8 @@ async function launchScratchpad(container: HTMLElement) {
       await saveSettings({ theme: newTheme as any });
     },
     onViewModeChange: (mode: ViewMode) => {
+      syncRawToData();
+
       viewportContainer.style.display = mode === 'tree' ? 'block' : 'none';
       rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
       tableContainer.style.display = mode === 'table' ? 'block' : 'none';
@@ -261,6 +290,7 @@ async function launchScratchpad(container: HTMLElement) {
       showToast('Downloaded JSON file!');
     },
     onOpenDiff: () => {
+      syncRawToData();
       openDiffModal({
         primaryData: jsonObject,
         onDiffReady: (diffNodes, stats) => {
@@ -271,9 +301,10 @@ async function launchScratchpad(container: HTMLElement) {
       });
     },
     onOpenTools: (initialTab) => {
+      syncRawToData();
       openToolsModal({
         data: jsonObject,
-        rawText: sampleJsonStr,
+        rawText: currentJsonText,
         parseTimeMs,
         onToast: showToast,
         initialTab

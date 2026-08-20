@@ -1666,8 +1666,6 @@ body, html {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: 65vh;
-  overflow-y: auto;
   padding-right: 4px;
 }
 
@@ -1778,7 +1776,8 @@ body, html {
   background: var(--pjv-bg-card, #1e1e2d);
   border: 1px solid var(--pjv-border-color, #2e2e44);
   border-radius: 8px;
-  overflow: hidden;
+  overflow-y: auto;
+  max-height: 380px;
 }
 
 .pjv-health-table {
@@ -1792,8 +1791,11 @@ body, html {
   color: var(--pjv-text-muted, #94a3b8);
   font-weight: 600;
   text-align: left;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--pjv-border-color, #2e2e44);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .pjv-health-table td {

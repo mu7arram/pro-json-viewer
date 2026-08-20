@@ -5070,7 +5070,8 @@ async function renderApp(mountTarget, rawJsonText) {
 
   if (loader) loader.remove();
 
-  const jsonObject = parseResult.jsonObject;
+  let jsonObject = parseResult.jsonObject;
+  let currentJsonText = rawJsonText;
   let currentNodes = parseResult.flatNodes;
   const parseTimeMs = parseResult.parseTimeMs || 0;
   const statsSummary = `📦 ${parseResult.formattedSize} • D${parseResult.maxDepth} • ${parseResult.totalKeys} keys`;
@@ -5141,6 +5142,35 @@ async function renderApp(mountTarget, rawJsonText) {
       treeView.setNodes(currentNodes, matchedIds);
     };
 
+    const syncRawToData = () => {
+      const rawVal = rawContainer.value.trim();
+      if (rawVal && rawVal !== currentJsonText) {
+        try {
+          const updated = JSON.parse(rawVal);
+          jsonObject = updated;
+          currentJsonText = rawContainer.value;
+          expandedStateMap.clear();
+          currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+          applyRender();
+
+          const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
+          const statsEl = toolbarContainer.querySelector('#pjv-badge-stats');
+          if (statsEl) {
+            statsEl.textContent = `📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`;
+          }
+
+          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ pjv_scratchpad_json: currentJsonText });
+          }
+          showToast('Updated view from Raw JSON!');
+        } catch (err) {
+          showToast(`⚠️ Syntax error in Raw JSON: ${err.message}`);
+        }
+      }
+    };
+
+    rawContainer.addEventListener('blur', syncRawToData);
+
     const toolbar = new Toolbar({
       container: toolbarContainer,
       currentTheme: settings.theme,
@@ -5157,6 +5187,8 @@ async function renderApp(mountTarget, rawJsonText) {
         }
       },
       onViewModeChange: (mode) => {
+        syncRawToData();
+
         viewportContainer.style.display = mode === 'tree' ? 'block' : 'none';
         rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
         tableContainer.style.display = mode === 'table' ? 'block' : 'none';
@@ -5218,6 +5250,7 @@ async function renderApp(mountTarget, rawJsonText) {
         showToast('Saved JSON file!');
       },
       onOpenDiff: () => {
+        syncRawToData();
         openDiffModal({
           primaryData: jsonObject,
           onDiffReady: (diffNodes, stats) => {
@@ -5228,9 +5261,10 @@ async function renderApp(mountTarget, rawJsonText) {
         });
       },
       onOpenTools: (initialTab) => {
+        syncRawToData();
         openToolsModal({
           data: jsonObject,
-          rawText: rawJsonText,
+          rawText: currentJsonText,
           parseTimeMs,
           onToast: showToast,
           initialTab
