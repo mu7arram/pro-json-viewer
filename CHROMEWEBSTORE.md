@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-19  
-**Version**: 1.7.0  
+**Last Updated**: 2026-08-20  
+**Version**: 1.8.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -12,12 +12,13 @@
 Pro JSON Viewer
 
 ### Short Description (max 132 chars)
-Fast, virtualized Manifest V3 JSON viewer with off-thread Web Worker parser for 50MB+ payloads, diagram graph, charts, and dev tools.
+Fast, virtualized Manifest V3 JSON viewer with schema health inspector, off-thread Web Worker parser, diagram graph, and dev tools.
 
 ### Detailed Description
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
 
 **Key Features:**
+- 🩺 **Schema Health & Anomaly Inspector**: Automated schema drift and data quality audits for API array payloads. Computes compliance health scores (0–100%), detects polymorphic type inconsistencies (e.g. `int` vs `string`), identifies missing required properties, tracks presence & null rates, and exports markdown audit reports.
 - ⚡ **Web Worker Off-Thread Parser (50MB+)**: Deserializes and traverses massive multi-megabyte payloads off the main thread with zero browser tab freezing and silky smooth 60fps UI responsiveness.
 - ⏳ **Glassmorphism Progress Loader**: Live progress indicator for large payloads with animated spinner, dynamic byte counters, and parse benchmark timer.
 - ⌨️ **Keyboard Shortcuts & Power-User Suite**: Instant hotkeys for view switching (`Alt/Option + 1..6`), search focus (`/` or `Cmd/Ctrl+F`), tree expansion (`e`/`c`), developer tools (`t`), and interactive cheatsheet modal (`?`).
@@ -26,7 +27,7 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 - ⚡ **High-Performance Virtualization**: Smooth 60fps windowed scrolling for large multi-megabyte JSON responses without tab freezes.
 - 🛠️ **Developer Tools Suite**: One-click TypeScript interface & Zod validation schema generator with copy and `.d.ts` / `.ts` download options.
 - 💾 **Multi-Format Exporter**: Export JSON payloads into RFC 4180 CSV spreadsheets, clean YAML documents, and formatted or minified JSON files.
-- 📊 **Real-Time Payload Stats Toolbar Badge**: Instant metrics displaying payload size, max nesting depth, total keys, and deserialization benchmarks.
+- 📊 **Real-Time Payload Stats Toolbar Badge**: Instant metrics displaying payload size, max nesting depth, total keys, and deserialization benchmarks with direct navigation to the Analytics dashboard.
 - 🔍 **Instant Search & JSONPath**: Filter keys, values, or run complex JSONPath queries (`$.data[*].id`) with real-time text highlighting and auto-expanding match trees.
 - 📊 **Tabbed Table View**: Automatically converts arrays into interactive sortable tables with magnetic scan depth controls (1–20 levels) and context-aware sub-array cell badges.
 - 📈 **Visual Chart Dashboard**: Interactive SVG analytics dashboard featuring Donut/Pie charts, Vertical & Horizontal Bar charts, string category aggregations (*Count by Category*), label/value column pickers, Top-N filtering, and Min/Max/Avg/Sum summary cards.
@@ -55,7 +56,15 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 
 ## 4. Version History
 
-### Version 1.7.0 (2026-08-19)
+### Version 1.8.0 (2026-08-20)
+- Added **Schema Structure & Anomaly Health Inspector Panel (`SchemaHealthEngine`)**: Automated data quality auditor discovering array collections, calculating property presence and null rates, and pinpointing individual record anomalies.
+- Added **Polymorphic Type Drift Detection**: Flags fields with mixed data types across records (e.g., numbers stored as strings).
+- Added **Missing Required Property Detection**: Highlights rows missing dominant schema fields.
+- Added **Compliance Health Score (0–100%)**: Weighted health dial badge categorizing collections as Healthy (`🟢 EXCELLENT`), Warning (`🟡 WARNING`), or Anomaly (`🔴 CRITICAL`).
+- Added **Dedicated Scrollable Property Table**: Sticky column headers and smooth dedicated vertical scrolling for inspecting payloads with dozens of fields.
+- Added **Markdown Audit Report Exporter**: One-click copy or download of formatted Markdown reports for GitHub issues or Jira tickets.
+- Enhanced **Scratchpad Live Sync**: Seamless two-way re-parsing when editing JSON in Raw mode.
+- Enhanced **Stats Badge Navigation**: Clicking toolbar stats badge jumps straight to the 📊 Analytics tab.
 - Added **Web Worker Off-Thread Parser (`worker-bridge`)**: Background worker thread for parsing and flattening large JSON responses (50MB+) without UI blocking.
 - Added **Glassmorphism Progress Loader (`ProgressLoader`)**: Animated progress card displaying live byte counters, parsing stages, and execution benchmark timers for large payloads.
 - Maintained **60fps UI Responsiveness**: Zero tab freezing or scrolling lag during heavy JSON deserialization.
