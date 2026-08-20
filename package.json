@@ -6,12 +6,19 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "node scripts/generate-icons.js && vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^20.12.0",
+    "@vitest/ui": "^4.1.11",
+    "jsdom": "^29.1.1",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11"
+    "vite": "^5.2.11",
+    "vitest": "^4.1.11"
   }
 }

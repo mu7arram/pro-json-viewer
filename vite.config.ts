@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite';
+/// <reference types="vitest" />
+import { defineConfig } from "vitest/config";
 import { resolve } from 'path';
 import fs from 'fs';
 
@@ -33,6 +34,11 @@ function copyExtensionAssets() {
 }
 
 export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    include: ['tests/**/*.test.ts']
+  },  
   build: {
     outDir: 'dist',
     emptyOutDir: true,
