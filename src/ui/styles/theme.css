@@ -925,8 +925,9 @@ body, html {
   top: -28px;
   left: 50%;
   transform: translateX(-50%) scale(0.85);
-  background: var(--pjv-accent, #38bdf8);
-  color: #ffffff;
+  background: var(--pjv-bg-badge, #1e293b);
+  color: var(--pjv-text-main, #f8fafc);
+  border: 1px solid var(--pjv-border-color, rgba(255, 255, 255, 0.15));
   font-size: 10px;
   font-weight: 700;
   padding: 2px 6px;
@@ -947,7 +948,7 @@ body, html {
   transform: translateX(-50%);
   border-width: 4px 4px 0 4px;
   border-style: solid;
-  border-color: var(--pjv-accent, #38bdf8) transparent transparent transparent;
+  border-color: var(--pjv-bg-badge, #1e293b) transparent transparent transparent;
 }
 
 .pjv-magnetic-dot-slider:hover .pjv-dot-tooltip,
@@ -1625,7 +1626,7 @@ body, html {
   color: var(--pjv-text-muted, #94a3b8);
 }
 
-.pjv-progress-track {
+.pjv-progress-loader-track {
   width: 100%;
   height: 8px;
   background: var(--pjv-bg-main, #14141e);
@@ -1635,7 +1636,7 @@ body, html {
   position: relative;
 }
 
-.pjv-progress-fill {
+.pjv-progress-loader-fill {
   height: 100%;
   background: linear-gradient(90deg, #38bdf8, #818cf8);
   border-radius: 6px;
@@ -1837,9 +1838,9 @@ body, html {
 }
 
 .pjv-type-badge.inconsistent {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--pjv-pill-high-bg, rgba(239, 68, 68, 0.15));
+  color: var(--pjv-pill-high-text, #f87171);
+  border-color: var(--pjv-pill-high-border, rgba(239, 68, 68, 0.4));
 }
 
 .pjv-status-pill {
@@ -1848,21 +1849,25 @@ body, html {
   border-radius: 12px;
   font-size: 11px;
   font-weight: 600;
+  border: 1px solid transparent;
 }
 
 .pjv-status-pill.healthy {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
+  background: var(--pjv-pill-low-bg, rgba(34, 197, 94, 0.15));
+  color: var(--pjv-pill-low-text, #4ade80);
+  border-color: var(--pjv-pill-low-border, rgba(34, 197, 94, 0.3));
 }
 
 .pjv-status-pill.warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: var(--pjv-pill-medium-bg, rgba(245, 158, 11, 0.15));
+  color: var(--pjv-pill-medium-text, #fbbf24);
+  border-color: var(--pjv-pill-medium-border, rgba(245, 158, 11, 0.3));
 }
 
 .pjv-status-pill.anomaly {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: var(--pjv-pill-high-bg, rgba(239, 68, 68, 0.15));
+  color: var(--pjv-pill-high-text, #f87171);
+  border-color: var(--pjv-pill-high-border, rgba(239, 68, 68, 0.3));
 }
 
 .pjv-anomalies-list {
@@ -1904,11 +1909,12 @@ body, html {
 
 .pjv-anomaly-val {
   background: var(--pjv-bg-main, #14141e);
-  color: #f87171;
+  color: var(--pjv-pill-high-text, #f87171);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 10.5px;
   font-family: var(--pjv-font-mono, monospace);
+  border: 1px solid var(--pjv-border-color, #2e2e44);
 }
 
 

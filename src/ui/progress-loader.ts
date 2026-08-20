@@ -23,8 +23,8 @@ export class ProgressLoader {
           </div>
         </div>
 
-        <div class="pjv-progress-track">
-          <div class="pjv-progress-fill" id="pjv-progress-fill" style="width: 5%;"></div>
+        <div class="pjv-progress-loader-track">
+          <div class="pjv-progress-loader-fill" id="pjv-progress-fill" style="width: 5%;"></div>
         </div>
 
         <div class="pjv-progress-footer">
