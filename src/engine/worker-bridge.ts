@@ -206,23 +206,34 @@ const WORKER_CODE = `
 `;
 
 let workerInstance: Worker | null = null;
+let isWorkerBlockedByCsp = false;
 
 function getWorker(): Worker | null {
+  if (isWorkerBlockedByCsp) return null;
   try {
     if (!workerInstance && typeof Blob !== 'undefined' && typeof Worker !== 'undefined') {
       const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
       const workerUrl = URL.createObjectURL(blob);
       workerInstance = new Worker(workerUrl);
+      workerInstance.onerror = () => {
+        isWorkerBlockedByCsp = true;
+        if (workerInstance) {
+          try { workerInstance.terminate(); } catch {}
+          workerInstance = null;
+        }
+      };
     }
     return workerInstance;
-  } catch (err) {
-    console.warn('[Pro JSON Viewer] Web Worker creation failed, falling back to sync:', err);
+  } catch {
+    isWorkerBlockedByCsp = true;
+    workerInstance = null;
     return null;
   }
 }
 
 /**
  * Parses JSON off-thread via a dedicated Web Worker with live progress events and 60fps responsiveness.
+ * Automatically falls back to synchronous parsing if Web Workers are restricted by Content Security Policy (CSP).
  */
 export async function parseJsonAsync(
   rawJsonText: string,
@@ -230,35 +241,78 @@ export async function parseJsonAsync(
   expandedStateMap?: Map<string, boolean>,
   onProgress?: (progress: ParseProgressPayload) => void
 ): Promise<ParseWorkerResult> {
+  // Payloads under 1MB are fast enough to parse synchronously (<10ms) without triggering CSP warnings
+  if (rawJsonText.length < 1024 * 1024 || isWorkerBlockedByCsp) {
+    return parseJsonSync(rawJsonText, defaultExpandDepth, expandedStateMap);
+  }
+
   const worker = getWorker();
 
-  // If worker is unavailable, fallback to sync processing
+  // If worker is unavailable (e.g. CSP restrictions), fallback to sync processing
   if (!worker) {
     return parseJsonSync(rawJsonText, defaultExpandDepth, expandedStateMap);
   }
 
-  return new Promise((resolve, reject) => {
-    const handler = (e: MessageEvent) => {
-      const { type, payload, error } = e.data;
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const cleanup = () => {
+      worker.removeEventListener('message', messageHandler);
+      worker.removeEventListener('error', errorHandler);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
+
+    const finishWithSync = () => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      isWorkerBlockedByCsp = true;
+      if (workerInstance) {
+        try { workerInstance.terminate(); } catch {}
+        workerInstance = null;
+      }
+      resolve(parseJsonSync(rawJsonText, defaultExpandDepth, expandedStateMap));
+    };
+
+    const messageHandler = (e: MessageEvent) => {
+      if (resolved) return;
+      const { type, payload } = e.data || {};
 
       if (type === 'PROGRESS') {
         if (onProgress) onProgress(payload as ParseProgressPayload);
       } else if (type === 'COMPLETE') {
-        worker.removeEventListener('message', handler);
+        resolved = true;
+        cleanup();
         resolve(payload as ParseWorkerResult);
       } else if (type === 'ERROR') {
-        worker.removeEventListener('message', handler);
-        reject(new Error(error));
+        finishWithSync();
       }
     };
 
-    worker.addEventListener('message', handler);
-    worker.postMessage({
-      type: 'PARSE_PAYLOAD',
-      rawText: rawJsonText,
-      defaultExpandDepth,
-      expandedEntries: expandedStateMap ? Array.from(expandedStateMap.entries()) : []
-    });
+    const errorHandler = () => {
+      finishWithSync();
+    };
+
+    // If CSP silently prevents worker execution, fallback after 500ms
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        finishWithSync();
+      }
+    }, 500);
+
+    worker.addEventListener('message', messageHandler);
+    worker.addEventListener('error', errorHandler);
+
+    try {
+      worker.postMessage({
+        type: 'PARSE_PAYLOAD',
+        rawText: rawJsonText,
+        defaultExpandDepth,
+        expandedEntries: expandedStateMap ? Array.from(expandedStateMap.entries()) : []
+      });
+    } catch {
+      finishWithSync();
+    }
   });
 }
 
