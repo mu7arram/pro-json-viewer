@@ -5,7 +5,7 @@ import { getSettings } from '../shared/storage';
 import { copyToClipboard } from '../shared/utils';
 import { TreeView } from '../ui/tree-view';
 import { Toolbar } from '../ui/toolbar';
-import { openDiffModal } from '../ui/diff-view';
+import { DiffView } from '../ui/diff-view';
 import '../ui/styles/theme.css';
 
 async function initProJsonViewer() {
@@ -46,9 +46,14 @@ async function initProJsonViewer() {
   const viewportContainer = document.createElement('div');
   viewportContainer.className = 'pjv-viewport';
 
+  const diffContainer = document.createElement('div');
+  diffContainer.className = 'pjv-diff-container';
+  diffContainer.style.display = 'none';
+
   root.appendChild(toolbarContainer);
   root.appendChild(viewportContainer);
   root.appendChild(rawContainer);
+  root.appendChild(diffContainer);
 
   // Clear existing document and mount Pro JSON Viewer
   document.body.innerHTML = '';
@@ -102,15 +107,20 @@ async function initProJsonViewer() {
     treeView.setNodes(currentNodes, matchedIds);
   };
 
-  new Toolbar({
+  const toolbar = new Toolbar({
     container: toolbarContainer,
     onViewModeChange: (mode: ViewMode) => {
-      if (mode === 'raw') {
-        viewportContainer.style.display = 'none';
-        rawContainer.style.display = 'block';
-      } else {
-        rawContainer.style.display = 'none';
-        viewportContainer.style.display = 'block';
+      viewportContainer.style.display = mode === 'tree' ? 'block' : 'none';
+      rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
+      diffContainer.style.display = mode === 'diff' ? 'block' : 'none';
+
+      if (mode === 'diff') {
+        diffContainer.innerHTML = '';
+        new DiffView({
+          container: diffContainer,
+          primaryData: jsonObject,
+          onToast: showToast
+        });
       }
     },
     onSearchChange: (query, mode) => {
@@ -148,14 +158,7 @@ async function initProJsonViewer() {
       showToast('Downloaded JSON file!');
     },
     onOpenDiff: () => {
-      openDiffModal({
-        primaryData: jsonObject,
-        onDiffReady: (diffNodes, stats) => {
-          currentNodes = diffNodes;
-          treeView.setNodes(diffNodes);
-          showToast(`Diff Applied: +${stats.added} -${stats.removed} ~${stats.modified}`);
-        }
-      });
+      toolbar.setViewMode('diff');
     },
     onOpenOptions: () => {
       if (typeof chrome !== 'undefined' && chrome.runtime?.openOptionsPage) {
