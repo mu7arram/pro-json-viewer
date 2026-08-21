@@ -24,4 +24,11 @@ function fallbackCopy(text: string): Promise<void> {
       reject(err);
     }
   });
+}export function escapeHtml(str: any): string {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

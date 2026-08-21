@@ -10,9 +10,9 @@ import { TreeView } from '../ui/tree-view';
 import { TableView } from '../ui/table-view';
 import { ChartView } from '../ui/chart-view';
 import { DiagramView } from '../ui/diagram-view';
+import { DiffView } from '../ui/diff-view';
 import { Toolbar } from '../ui/toolbar';
 import { openToolsModal } from '../ui/tools-modal';
-import { openDiffModal } from '../ui/diff-view';
 import { openShortcutsModal, registerKeyboardShortcuts } from '../ui/keyboard-shortcuts';
 import '../ui/styles/theme.css';
 
@@ -142,12 +142,17 @@ async function launchScratchpad(container: HTMLElement) {
   const diagramContainer = document.createElement('div');
   diagramContainer.style.display = 'none';
 
+  const diffContainer = document.createElement('div');
+  diffContainer.className = 'pjv-diff-container';
+  diffContainer.style.display = 'none';
+
   root.appendChild(toolbarContainer);
   root.appendChild(viewportContainer);
   root.appendChild(rawContainer);
   root.appendChild(tableContainer);
   root.appendChild(chartContainer);
   root.appendChild(diagramContainer);
+  root.appendChild(diffContainer);
   container.appendChild(root);
 
   // Toast
@@ -228,6 +233,7 @@ async function launchScratchpad(container: HTMLElement) {
       tableContainer.style.display = mode === 'table' ? 'block' : 'none';
       chartContainer.style.display = mode === 'chart' ? 'block' : 'none';
       diagramContainer.style.display = mode === 'diagram' ? 'block' : 'none';
+      diffContainer.style.display = mode === 'diff' ? 'block' : 'none';
 
       if (mode === 'table') {
         tableContainer.innerHTML = '';
@@ -253,6 +259,13 @@ async function launchScratchpad(container: HTMLElement) {
           data: jsonObject,
           defaultDepth: settings.defaultExpandDepth || 2,
           maxDepth: parseResult.maxDepth,
+          onToast: showToast
+        });
+      } else if (mode === 'diff') {
+        diffContainer.innerHTML = '';
+        new DiffView({
+          container: diffContainer,
+          primaryData: jsonObject,
           onToast: showToast
         });
       }
@@ -316,14 +329,7 @@ async function launchScratchpad(container: HTMLElement) {
     },
     onOpenDiff: () => {
       syncRawToData();
-      openDiffModal({
-        primaryData: jsonObject,
-        onDiffReady: (diffNodes, stats) => {
-          currentNodes = diffNodes;
-          treeView.setNodes(diffNodes);
-          showToast(`Diff Applied: +${stats.added} -${stats.removed} ~${stats.modified}`);
-        }
-      });
+      toolbar.setViewMode('diff');
     },
     onOpenTools: (initialTab) => {
       syncRawToData();
@@ -365,14 +371,7 @@ async function launchScratchpad(container: HTMLElement) {
       showToast('Collapsed All');
     },
     onOpenDiff: () => {
-      openDiffModal({
-        primaryData: jsonObject,
-        onDiffReady: (diffNodes, stats) => {
-          currentNodes = diffNodes;
-          treeView.setNodes(diffNodes);
-          showToast(`Diff Applied: +${stats.added} -${stats.removed} ~${stats.modified}`);
-        }
-      });
+      toolbar.setViewMode('diff');
     },
     onOpenTools: () => {
       openToolsModal({
