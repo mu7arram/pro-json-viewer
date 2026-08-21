@@ -13,6 +13,21 @@ export function formatByteSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+export function getJsonMaxDepth(data: any): number {
+  let maxDepth = 0;
+  function traverse(obj: any, depth = 1) {
+    if (depth > maxDepth) maxDepth = depth;
+    if (!obj || typeof obj !== 'object') return;
+    if (Array.isArray(obj)) {
+      obj.forEach((item) => traverse(item, depth + 1));
+    } else {
+      Object.keys(obj).forEach((k) => traverse(obj[k], depth + 1));
+    }
+  }
+  traverse(data, 1);
+  return maxDepth;
+}
+
 export function analyzePayloadStats(rawText: string, data: any, parseTimeMs = 0): PayloadStats {
   const byteSize = new Blob([rawText || JSON.stringify(data)]).size;
   let totalKeys = 0;
