@@ -2,6 +2,7 @@ export interface ChartViewOptions {
   container: HTMLElement;
   data: any;
   scanDepth?: number;
+  maxDepth?: number;
   onToast?: (msg: string) => void;
 }
 
@@ -179,6 +180,7 @@ export class ChartView {
   private container: HTMLElement;
   private rawData: any;
   private scanDepth: number;
+  private maxDepth: number = 20;
   private onToast?: (msg: string) => void;
   private datasets: ChartTabDataset[] = [];
   private activeTabId: string = '';
@@ -192,6 +194,7 @@ export class ChartView {
     this.container = options.container;
     this.rawData = options.data;
     this.scanDepth = options.scanDepth || 3;
+    this.maxDepth = options.maxDepth || 20;
     this.onToast = options.onToast;
 
     this.initDatasets();
@@ -261,7 +264,7 @@ export class ChartView {
     dotTrack.className = 'pjv-dot-slider-track';
 
     const dotElements: HTMLElement[] = [];
-    const maxDepthVal = 20;
+    const maxDepthVal = Math.min(Math.max(2, this.maxDepth), 20);
     for (let i = 1; i <= maxDepthVal; i++) {
       const dot = document.createElement('div');
       dot.className = 'pjv-dot-step';

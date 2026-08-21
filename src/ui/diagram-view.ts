@@ -2,6 +2,7 @@ export interface DiagramViewOptions {
   container: HTMLElement;
   data: any;
   defaultDepth?: number;
+  maxDepth?: number;
   onToast?: (msg: string) => void;
 }
 
@@ -35,6 +36,7 @@ export class DiagramView {
   private orientation: 'horizontal' | 'vertical' = 'horizontal';
   private expandedMap = new Map<string, boolean>();
   private currentDepth = 2;
+  private maxDepth = 3;
   private searchQuery = '';
 
   // Pan & Zoom state
@@ -57,6 +59,7 @@ export class DiagramView {
     this.container = options.container;
     this.rawData = options.data;
     this.currentDepth = options.defaultDepth || 2;
+    this.maxDepth = options.maxDepth || 3;
     this.onToast = options.onToast;
 
     this.initGraph();
@@ -204,6 +207,12 @@ export class DiagramView {
     this.wrapperEl = document.createElement('div');
     this.wrapperEl.className = 'pjv-diagram-container';
 
+    const maxButtons = Math.min(Math.max(2, this.maxDepth), 6);
+    let depthButtonsHtml = '';
+    for (let d = 1; d <= maxButtons; d++) {
+      depthButtonsHtml += `<button id="pjv-diag-d${d}" class="pjv-btn" title="Expand Diagram to Depth ${d}">D${d}</button>`;
+    }
+
     // 1. Floating Diagram Control Toolbar
     const controls = document.createElement('div');
     controls.className = 'pjv-diagram-controls';
@@ -225,9 +234,7 @@ export class DiagramView {
         </div>
 
         <div class="pjv-btn-group">
-          <button id="pjv-diag-d1" class="pjv-btn">D1</button>
-          <button id="pjv-diag-d2" class="pjv-btn">D2</button>
-          <button id="pjv-diag-d3" class="pjv-btn">D3</button>
+          ${depthButtonsHtml}
           <button id="pjv-diag-expand" class="pjv-btn">Expand</button>
           <button id="pjv-diag-collapse" class="pjv-btn">Collapse</button>
         </div>
@@ -498,9 +505,10 @@ export class DiagramView {
       this.renderCanvas();
     });
 
-    controls.querySelector('#pjv-diag-d1')!.addEventListener('click', () => this.setExpandDepth(1));
-    controls.querySelector('#pjv-diag-d2')!.addEventListener('click', () => this.setExpandDepth(2));
-    controls.querySelector('#pjv-diag-d3')!.addEventListener('click', () => this.setExpandDepth(3));
+    const maxButtons = Math.min(Math.max(2, this.maxDepth), 6);
+    for (let d = 1; d <= maxButtons; d++) {
+      controls.querySelector(`#pjv-diag-d${d}`)?.addEventListener('click', () => this.setExpandDepth(d));
+    }
     controls.querySelector('#pjv-diag-expand')!.addEventListener('click', () => this.setExpandDepth(100));
     controls.querySelector('#pjv-diag-collapse')!.addEventListener('click', () => this.setExpandDepth(0));
 

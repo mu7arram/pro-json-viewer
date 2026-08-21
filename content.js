@@ -710,72 +710,98 @@ class TreeView {
 class Toolbar {
   constructor(options) {
     this.container = options.container;
+    this.options = options;
     this.currentMode = 'tree';
-    this.filterMode = 'text';
-    this.render(options);
+    this.maxDepth = options.maxDepth || 3;
+    this.isRawWrapped = false;
+    this.render();
   }
 
-  render(opts) {
-    this.container.className = 'pjv-toolbar';
+  focusSearch() {
+    if (this.currentMode !== 'tree') {
+      this.setViewMode('tree');
+    }
+    setTimeout(() => {
+      if (this.searchInput) {
+        this.searchInput.focus();
+        this.searchInput.select();
+      }
+    }, 50);
+  }
+
+  setViewMode(mode) {
+    if (this.setViewFn) {
+      this.setViewFn(mode);
+    }
+  }
+
+  updateMaxDepth(depth) {
+    this.maxDepth = Math.max(1, depth);
+    if (this.currentMode === 'tree') {
+      this.renderSubToolbar('tree');
+    }
+  }
+
+  updateStatsSummary(summary) {
+    const statsBadge = this.container.querySelector('#pjv-badge-stats');
+    if (statsBadge) {
+      statsBadge.textContent = summary;
+    }
+  }
+
+  render() {
+    this.container.className = 'pjv-toolbar-wrapper';
     this.container.innerHTML = `
-      <div class="pjv-brand">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;">
-          <path d="M8 3H6a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h2m8-18h2a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-2" />
-        </svg>
-        Pro JSON
+      <!-- Global Topbar (Always Persistent) -->
+      <div class="pjv-toolbar-global">
+        <div class="pjv-brand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;">
+            <path d="M8 3H6a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h2m8-18h2a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-2" />
+          </svg>
+          Pro JSON
+        </div>
+
+        <!-- View Mode Switchers -->
+        <div class="pjv-btn-group pjv-view-switchers">
+          <button class="pjv-btn active" id="pjv-btn-tree" title="Interactive Tree View (Alt+1)">🌳 Tree</button>
+          <button class="pjv-btn" id="pjv-btn-table" title="Relational Table View (Alt+2)">📊 Table</button>
+          <button class="pjv-btn" id="pjv-btn-chart" title="Visual Analytics Dashboard (Alt+3)">📈 Chart</button>
+          <button class="pjv-btn" id="pjv-btn-diagram" title="Visual Hierarchy Mindmap (Alt+4)">🗺️ Diagram</button>
+          <button class="pjv-btn" id="pjv-btn-raw" title="Raw Editor & Formatter (Alt+5)">📝 Raw</button>
+          <button class="pjv-btn" id="pjv-btn-diff" title="Structural Diff Mode (Alt+6)">🔀 Diff</button>
+        </div>
+
+        <!-- Global Utilities -->
+        <div class="pjv-btn-group pjv-global-actions">
+          <select id="pjv-toolbar-theme" title="Quick Theme Switcher" class="pjv-select-theme">
+            <option value="system">🎨 System</option>
+            <option value="dark">🎨 Dark</option>
+            <option value="light">🎨 Light</option>
+            <option value="dracula">🎨 Dracula</option>
+            <option value="onedark">🎨 One Dark</option>
+            <option value="monokai">🎨 Monokai</option>
+            <option value="nord">🎨 Nord</option>
+            <option value="github-dark">🎨 GH Dark</option>
+            <option value="github-light">🎨 GH Light</option>
+          </select>
+          <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter (t)">🛠️ Tools</button>
+          <button class="pjv-btn" id="pjv-btn-shortcuts" title="Keyboard Shortcuts Cheatsheet (?)">⌨️</button>
+          <button class="pjv-btn" id="pjv-btn-copy" title="Copy formatted JSON">📋 Copy</button>
+          <button class="pjv-btn" id="pjv-btn-download" title="Download JSON file">💾 Save</button>
+          <button class="pjv-btn" id="pjv-btn-options" title="Extension Settings">⚙️</button>
+        </div>
+
+        <!-- Payload Stats & Privacy Badge -->
+        <div class="pjv-toolbar-badges">
+          ${this.options.statsSummary ? `<div class="pjv-badge-stats" id="pjv-badge-stats" title="Click to view full payload stats & schema">${this.options.statsSummary}</div>` : ''}
+          <div class="pjv-badge-local" title="All processing occurs 100% locally in your browser. No telemetry or network calls.">
+            <span>🔒</span> 100% Local
+          </div>
+        </div>
       </div>
 
-      <div class="pjv-btn-group">
-        <button class="pjv-btn active" id="pjv-btn-tree" title="Tree View (Alt+1)">Tree</button>
-        <button class="pjv-btn" id="pjv-btn-table" title="Table View (Alt+2)">Table</button>
-        <button class="pjv-btn" id="pjv-btn-chart" title="Chart View (Alt+3)">Chart 📊</button>
-        <button class="pjv-btn" id="pjv-btn-diagram" title="Diagram View (Alt+4)">Diagram 🗺️</button>
-        <button class="pjv-btn" id="pjv-btn-raw" title="Raw View (Alt+5)">Raw</button>
-        <button class="pjv-btn" id="pjv-btn-diff" title="Diff Mode (Alt+6)">Diff</button>
-      </div>
-
-      <div class="pjv-search-box">
-        <input type="text" id="pjv-search-input" placeholder="Search keys, values, or JSONPath (e.g. $.users[0])... [/]" />
-        <select id="pjv-filter-mode" style="background:transparent; border:none; color:var(--pjv-text-muted); font-size:11px; cursor:pointer;">
-          <option value="text">Text</option>
-          <option value="regex">Regex</option>
-          <option value="jsonpath">JSONPath</option>
-        </select>
-      </div>
-
-      <div class="pjv-btn-group">
-        <button class="pjv-btn" id="pjv-btn-depth-1">D1</button>
-        <button class="pjv-btn" id="pjv-btn-depth-2">D2</button>
-        <button class="pjv-btn" id="pjv-btn-depth-3">D3</button>
-        <button class="pjv-btn" id="pjv-btn-expand-all" title="Expand All (e)">Expand</button>
-        <button class="pjv-btn" id="pjv-btn-collapse-all" title="Collapse All (c)">Collapse</button>
-      </div>
-
-      <div class="pjv-btn-group">
-        <select id="pjv-toolbar-theme" title="Quick Theme Switcher" style="background:transparent; border:none; color:var(--pjv-text-muted); font-size:11px; cursor:pointer; padding:4px 6px;">
-          <option value="system">🎨 System</option>
-          <option value="dark">🎨 Dark</option>
-          <option value="light">🎨 Light</option>
-          <option value="dracula">🎨 Dracula</option>
-          <option value="onedark">🎨 One Dark</option>
-          <option value="monokai">🎨 Monokai</option>
-          <option value="nord">🎨 Nord</option>
-          <option value="github-dark">🎨 GH Dark</option>
-          <option value="github-light">🎨 GH Light</option>
-        </select>
-        <button class="pjv-btn" id="pjv-btn-tools" title="TypeScript/Zod Schema Generator & Exporter (t)">🛠️ Tools</button>
-        <button class="pjv-btn" id="pjv-btn-shortcuts" title="Keyboard Shortcuts Cheatsheet (?)">⌨️</button>
-        <button class="pjv-btn" id="pjv-btn-copy" title="Copy formatted JSON">Copy</button>
-        <button class="pjv-btn" id="pjv-btn-download" title="Download JSON file">Save</button>
-        <button class="pjv-btn" id="pjv-btn-options" title="Extension Settings">⚙️</button>
-      </div>
-
-      <!-- Payload Stats & Privacy Badge -->
-      ${opts.statsSummary ? `<div class="pjv-badge-stats" id="pjv-badge-stats" title="Click to view full payload stats & schema">${opts.statsSummary}</div>` : ''}
-
-      <div class="pjv-badge-local" title="All processing occurs 100% locally in your browser. No telemetry or network calls.">
-        <span>🔒</span> 100% Local
-      </div>
+      <!-- Contextual Sub-Toolbar (Adapts to Active View) -->
+      <div class="pjv-toolbar-sub" id="pjv-toolbar-sub"></div>
     `;
 
     const treeBtn = this.container.querySelector('#pjv-btn-tree');
@@ -787,16 +813,18 @@ class Toolbar {
 
     const setView = (mode) => {
       this.currentMode = mode;
-      [treeBtn, tableBtn, chartBtn, diagramBtn, rawBtn, diffBtn].forEach((btn) => btn.classList.remove('active'));
-      if (mode === 'tree') treeBtn.classList.add('active');
-      if (mode === 'table') tableBtn.classList.add('active');
-      if (mode === 'chart') chartBtn.classList.add('active');
-      if (mode === 'diagram') diagramBtn.classList.add('active');
-      if (mode === 'raw') rawBtn.classList.add('active');
-      if (mode === 'diff') diffBtn.classList.add('active');
-      opts.onViewModeChange(mode);
+      [treeBtn, tableBtn, chartBtn, diagramBtn, rawBtn, diffBtn].forEach((btn) => btn?.classList.remove('active'));
+      if (mode === 'tree') treeBtn?.classList.add('active');
+      if (mode === 'table') tableBtn?.classList.add('active');
+      if (mode === 'chart') chartBtn?.classList.add('active');
+      if (mode === 'diagram') diagramBtn?.classList.add('active');
+      if (mode === 'raw') rawBtn?.classList.add('active');
+      if (mode === 'diff') diffBtn?.classList.add('active');
+
+      this.renderSubToolbar(mode);
+      this.options.onViewModeChange(mode);
     };
-    this.setView = setView;
+    this.setViewFn = setView;
 
     treeBtn.onclick = () => setView('tree');
     tableBtn.onclick = () => setView('table');
@@ -805,62 +833,158 @@ class Toolbar {
     rawBtn.onclick = () => setView('raw');
     diffBtn.onclick = () => {
       setView('diff');
-      opts.onOpenDiff();
+      this.options.onOpenDiff();
     };
-
-    const searchInput = this.container.querySelector('#pjv-search-input');
-    this.searchInput = searchInput;
-    const filterSelect = this.container.querySelector('#pjv-filter-mode');
-
-    const emitSearch = () => {
-      opts.onSearchChange(searchInput.value, filterSelect.value);
-    };
-
-    searchInput.oninput = emitSearch;
-    filterSelect.onchange = emitSearch;
-
-    this.container.querySelector('#pjv-btn-depth-1').onclick = () => opts.onExpandDepth(1);
-    this.container.querySelector('#pjv-btn-depth-2').onclick = () => opts.onExpandDepth(2);
-    this.container.querySelector('#pjv-btn-depth-3').onclick = () => opts.onExpandDepth(3);
-    this.container.querySelector('#pjv-btn-expand-all').onclick = () => opts.onExpandAll();
-    this.container.querySelector('#pjv-btn-collapse-all').onclick = () => opts.onCollapseAll();
 
     const toolsBtn = this.container.querySelector('#pjv-btn-tools');
-    if (toolsBtn && opts.onOpenTools) {
-      toolsBtn.onclick = () => opts.onOpenTools('ts');
+    if (toolsBtn && this.options.onOpenTools) {
+      toolsBtn.onclick = () => this.options.onOpenTools('ts');
     }
 
     const shortcutsBtn = this.container.querySelector('#pjv-btn-shortcuts');
-    if (shortcutsBtn && opts.onOpenShortcuts) {
-      shortcutsBtn.onclick = () => opts.onOpenShortcuts();
+    if (shortcutsBtn && this.options.onOpenShortcuts) {
+      shortcutsBtn.onclick = () => this.options.onOpenShortcuts();
     }
 
     const statsBadge = this.container.querySelector('#pjv-badge-stats');
-    if (statsBadge && opts.onOpenTools) {
-      statsBadge.onclick = () => opts.onOpenTools('analytics');
+    if (statsBadge && this.options.onOpenTools) {
+      statsBadge.onclick = () => this.options.onOpenTools('analytics');
     }
 
-    this.container.querySelector('#pjv-btn-copy').onclick = () => opts.onCopyAll();
-    this.container.querySelector('#pjv-btn-download').onclick = () => opts.onDownload();
-    this.container.querySelector('#pjv-btn-options').onclick = () => opts.onOpenOptions();
+    this.container.querySelector('#pjv-btn-copy').onclick = () => this.options.onCopyAll();
+    this.container.querySelector('#pjv-btn-download').onclick = () => this.options.onDownload();
+    this.container.querySelector('#pjv-btn-options').onclick = () => this.options.onOpenOptions();
 
     const themeSelect = this.container.querySelector('#pjv-toolbar-theme');
-    if (opts.currentTheme) themeSelect.value = opts.currentTheme;
+    if (this.options.currentTheme) themeSelect.value = this.options.currentTheme;
     themeSelect.onchange = () => {
-      if (opts.onThemeChange) opts.onThemeChange(themeSelect.value);
+      if (this.options.onThemeChange) this.options.onThemeChange(themeSelect.value);
     };
+
+    this.renderSubToolbar('tree');
   }
 
-  focusSearch() {
-    if (this.searchInput) {
-      this.searchInput.focus();
-      this.searchInput.select();
-    }
-  }
+  renderSubToolbar(mode) {
+    const sub = this.container.querySelector('#pjv-toolbar-sub');
+    if (!sub) return;
 
-  setViewMode(mode) {
-    if (this.setView) {
-      this.setView(mode);
+    if (mode === 'tree') {
+      const maxButtons = Math.min(Math.max(2, this.maxDepth), 6);
+      let depthButtonsHtml = '';
+      for (let d = 1; d <= maxButtons; d++) {
+        depthButtonsHtml += `<button class="pjv-btn" id="pjv-btn-depth-${d}" title="Expand to Depth ${d}">D${d}</button>`;
+      }
+
+      sub.innerHTML = `
+        <div class="pjv-sub-left">
+          <div class="pjv-search-box">
+            <input type="text" id="pjv-search-input" placeholder="Search keys, values, or JSONPath (e.g. $.users[0])... [/]" />
+            <select id="pjv-filter-mode" class="pjv-filter-mode-select">
+              <option value="text">Text</option>
+              <option value="regex">Regex</option>
+              <option value="jsonpath">JSONPath</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pjv-sub-right">
+          <div class="pjv-btn-group pjv-depth-group">
+            <span class="pjv-sub-label">Depth:</span>
+            ${depthButtonsHtml}
+            <button class="pjv-btn" id="pjv-btn-expand-all" title="Expand All (e)">Expand All</button>
+            <button class="pjv-btn" id="pjv-btn-collapse-all" title="Collapse All (c)">Collapse All</button>
+          </div>
+        </div>
+      `;
+
+      this.searchInput = sub.querySelector('#pjv-search-input');
+      this.filterSelect = sub.querySelector('#pjv-filter-mode');
+
+      const emitSearch = () => {
+        if (this.searchInput && this.filterSelect) {
+          this.options.onSearchChange(this.searchInput.value, this.filterSelect.value);
+        }
+      };
+
+      this.searchInput.oninput = emitSearch;
+      this.filterSelect.onchange = emitSearch;
+
+      for (let d = 1; d <= maxButtons; d++) {
+        const btn = sub.querySelector(`#pjv-btn-depth-${d}`);
+        btn?.addEventListener('click', () => this.options.onExpandDepth(d));
+      }
+
+      sub.querySelector('#pjv-btn-expand-all')?.addEventListener('click', () => this.options.onExpandAll());
+      sub.querySelector('#pjv-btn-collapse-all')?.addEventListener('click', () => this.options.onCollapseAll());
+
+    } else if (mode === 'raw') {
+      sub.innerHTML = `
+        <div class="pjv-sub-left">
+          <div class="pjv-sub-hint">
+            <span>📝</span> Raw JSON Editor • Edit or paste payloads to re-sync across all views
+          </div>
+        </div>
+
+        <div class="pjv-sub-right">
+          <div class="pjv-btn-group">
+            <button class="pjv-btn" id="pjv-btn-raw-format" title="Beautify and format JSON with 2 spaces">✨ Beautify</button>
+            <button class="pjv-btn" id="pjv-btn-raw-minify" title="Minify into compact single-line JSON">📦 Minify</button>
+            <button class="pjv-btn ${this.isRawWrapped ? 'active' : ''}" id="pjv-btn-raw-wrap" title="Toggle line wrapping in editor">↩️ Wrap Lines</button>
+          </div>
+        </div>
+      `;
+
+      sub.querySelector('#pjv-btn-raw-format')?.addEventListener('click', () => {
+        if (this.options.onRawFormat) this.options.onRawFormat();
+      });
+
+      sub.querySelector('#pjv-btn-raw-minify')?.addEventListener('click', () => {
+        if (this.options.onRawMinify) this.options.onRawMinify();
+      });
+
+      const wrapBtn = sub.querySelector('#pjv-btn-raw-wrap');
+      wrapBtn?.addEventListener('click', () => {
+        this.isRawWrapped = !this.isRawWrapped;
+        wrapBtn.classList.toggle('active', this.isRawWrapped);
+        if (this.options.onRawWrapToggle) this.options.onRawWrapToggle(this.isRawWrapped);
+      });
+
+    } else if (mode === 'table') {
+      sub.innerHTML = `
+        <div class="pjv-sub-left">
+          <div class="pjv-sub-hint">
+            <span>📊</span> Tabular Data Dashboard • Click column headers to sort • Use nested badges to inspect sub-arrays
+          </div>
+        </div>
+        <div class="pjv-sub-right"></div>
+      `;
+    } else if (mode === 'chart') {
+      sub.innerHTML = `
+        <div class="pjv-sub-left">
+          <div class="pjv-sub-hint">
+            <span>📈</span> Visual Chart Analytics • Donut, Vertical Bar & Horizontal Bar charts with Top-N filtering
+          </div>
+        </div>
+        <div class="pjv-sub-right"></div>
+      `;
+    } else if (mode === 'diagram') {
+      sub.innerHTML = `
+        <div class="pjv-sub-left">
+          <div class="pjv-sub-hint">
+            <span>🗺️</span> Interactive Hierarchy Graph • Scroll to Zoom • Drag canvas to Pan • Click nodes to expand
+          </div>
+        </div>
+        <div class="pjv-sub-right"></div>
+      `;
+    } else if (mode === 'diff') {
+      sub.innerHTML = `
+        <div class="pjv-sub-left">
+          <div class="pjv-sub-hint">
+            <span>🔀</span> Structural Payload Comparison • Highlighting added, removed, and modified properties
+          </div>
+        </div>
+        <div class="pjv-sub-right"></div>
+      `;
     }
   }
 }
@@ -962,6 +1086,7 @@ class TableView {
     this.container = options.container;
     this.rawData = options.data;
     this.scanDepth = options.scanDepth || 3;
+    this.maxDepth = options.maxDepth || 20;
     this.onCopyToast = options.onCopyToast;
     this.datasets = [];
     this.activeTabId = '';
@@ -1157,7 +1282,7 @@ class TableView {
     dotTrack.className = 'pjv-dot-slider-track';
 
     const dotElements = [];
-    const maxDepthVal = 20;
+    const maxDepthVal = Math.min(Math.max(2, this.maxDepth), 20);
     for (let i = 1; i <= maxDepthVal; i++) {
       const dot = document.createElement('div');
       dot.className = 'pjv-dot-step';
@@ -1648,6 +1773,7 @@ class ChartView {
     this.container = options.container;
     this.rawData = options.data;
     this.scanDepth = options.scanDepth || 3;
+    this.maxDepth = options.maxDepth || 20;
     this.onToast = options.onToast;
     this.datasets = [];
     this.activeTabId = '';
@@ -1724,7 +1850,7 @@ class ChartView {
     dotTrack.className = 'pjv-dot-slider-track';
 
     const dotElements = [];
-    const maxDepthVal = 20;
+    const maxDepthVal = Math.min(Math.max(2, this.maxDepth), 20);
     for (let i = 1; i <= maxDepthVal; i++) {
       const dot = document.createElement('div');
       dot.className = 'pjv-dot-step';
@@ -2620,6 +2746,7 @@ class DiagramView {
     this.container = options.container;
     this.rawData = options.data;
     this.currentDepth = options.defaultDepth || 2;
+    this.maxDepth = options.maxDepth || 3;
     this.onToast = options.onToast;
 
     this.rootNode = null;
@@ -2781,6 +2908,12 @@ class DiagramView {
     this.wrapperEl = document.createElement('div');
     this.wrapperEl.className = 'pjv-diagram-container';
 
+    const maxButtons = Math.min(Math.max(2, this.maxDepth), 6);
+    let depthButtonsHtml = '';
+    for (let d = 1; d <= maxButtons; d++) {
+      depthButtonsHtml += `<button id="pjv-diag-d${d}" class="pjv-btn" title="Expand Diagram to Depth ${d}">D${d}</button>`;
+    }
+
     const controls = document.createElement('div');
     controls.className = 'pjv-diagram-controls';
     controls.innerHTML = `
@@ -2801,9 +2934,7 @@ class DiagramView {
         </div>
 
         <div class="pjv-btn-group">
-          <button id="pjv-diag-d1" class="pjv-btn">D1</button>
-          <button id="pjv-diag-d2" class="pjv-btn">D2</button>
-          <button id="pjv-diag-d3" class="pjv-btn">D3</button>
+          ${depthButtonsHtml}
           <button id="pjv-diag-expand" class="pjv-btn">Expand</button>
           <button id="pjv-diag-collapse" class="pjv-btn">Collapse</button>
         </div>
@@ -3071,9 +3202,10 @@ class DiagramView {
       this.renderCanvas();
     });
 
-    controls.querySelector('#pjv-diag-d1').addEventListener('click', () => this.setExpandDepth(1));
-    controls.querySelector('#pjv-diag-d2').addEventListener('click', () => this.setExpandDepth(2));
-    controls.querySelector('#pjv-diag-d3').addEventListener('click', () => this.setExpandDepth(3));
+    const maxButtons = Math.min(Math.max(2, this.maxDepth), 6);
+    for (let d = 1; d <= maxButtons; d++) {
+      controls.querySelector(`#pjv-diag-d${d}`)?.addEventListener('click', () => this.setExpandDepth(d));
+    }
     controls.querySelector('#pjv-diag-expand').addEventListener('click', () => this.setExpandDepth(100));
     controls.querySelector('#pjv-diag-collapse').addEventListener('click', () => this.setExpandDepth(0));
 
@@ -5154,10 +5286,8 @@ async function renderApp(mountTarget, rawJsonText) {
           applyRender();
 
           const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
-          const statsEl = toolbarContainer.querySelector('#pjv-badge-stats');
-          if (statsEl) {
-            statsEl.textContent = `📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`;
-          }
+          toolbar.updateMaxDepth(stats.maxDepth);
+          toolbar.updateStatsSummary(`📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`);
 
           if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
             chrome.storage.local.set({ pjv_scratchpad_json: currentJsonText });
@@ -5175,6 +5305,7 @@ async function renderApp(mountTarget, rawJsonText) {
       container: toolbarContainer,
       currentTheme: settings.theme,
       statsSummary,
+      maxDepth: parseResult.maxDepth,
       onThemeChange: (newTheme) => {
         document.documentElement.setAttribute('data-theme', newTheme === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -5201,6 +5332,7 @@ async function renderApp(mountTarget, rawJsonText) {
             container: tableContainer,
             data: jsonObject,
             scanDepth: settings.tableScanDepth || 3,
+            maxDepth: parseResult.maxDepth,
             onCopyToast: showToast
           });
         } else if (mode === 'chart') {
@@ -5209,6 +5341,7 @@ async function renderApp(mountTarget, rawJsonText) {
             container: chartContainer,
             data: jsonObject,
             scanDepth: settings.tableScanDepth || 3,
+            maxDepth: parseResult.maxDepth,
             onToast: showToast
           });
         } else if (mode === 'diagram') {
@@ -5217,9 +5350,33 @@ async function renderApp(mountTarget, rawJsonText) {
             container: diagramContainer,
             data: jsonObject,
             defaultDepth: settings.defaultExpandDepth || 2,
+            maxDepth: parseResult.maxDepth,
             onToast: showToast
           });
         }
+      },
+      onRawFormat: () => {
+        try {
+          const obj = JSON.parse(rawContainer.value);
+          rawContainer.value = JSON.stringify(obj, null, 2);
+          showToast('✨ Formatted JSON with 2-space indentation');
+        } catch (err) {
+          showToast(`⚠️ Syntax error: ${err.message}`);
+        }
+      },
+      onRawMinify: () => {
+        try {
+          const obj = JSON.parse(rawContainer.value);
+          rawContainer.value = JSON.stringify(obj);
+          showToast('📦 Minified JSON to compact single-line');
+        } catch (err) {
+          showToast(`⚠️ Syntax error: ${err.message}`);
+        }
+      },
+      onRawWrapToggle: (wrapped) => {
+        rawContainer.style.whiteSpace = wrapped ? 'pre-wrap' : 'pre';
+        rawContainer.style.overflowWrap = wrapped ? 'break-word' : 'normal';
+        showToast(wrapped ? '↩️ Word wrap enabled' : '➡️ Word wrap disabled');
       },
       onSearchChange: (query, mode) => {
         activeQuery = query;

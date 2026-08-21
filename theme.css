@@ -290,19 +290,95 @@ body, html {
   width: 100vw;
 }
 
-/* Glassmorphic Toolbar */
-.pjv-toolbar {
+/* Glassmorphic 2-Tier Adaptive Toolbar */
+.pjv-toolbar-wrapper {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
+  flex-direction: column;
   background: var(--pjv-bg-toolbar);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--pjv-border-color);
   z-index: 100;
   user-select: none;
+}
+
+.pjv-toolbar-global {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   flex-wrap: wrap;
+}
+
+.pjv-toolbar-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 14px;
+  background: rgba(0, 0, 0, 0.08);
+  min-height: 28px;
+  flex-wrap: wrap;
+  transition: all 0.2s ease;
+}
+
+.pjv-sub-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.pjv-sub-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pjv-sub-hint {
+  font-size: 11.5px;
+  color: var(--pjv-text-muted);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pjv-sub-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pjv-text-muted);
+  margin-right: 4px;
+}
+
+.pjv-toolbar-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.pjv-select-theme, .pjv-filter-mode-select {
+  background: transparent;
+  border: none;
+  color: var(--pjv-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 6px;
+  outline: none;
+}
+
+.pjv-select-theme option, .pjv-filter-mode-select option {
+  background: var(--pjv-bg-main);
+  color: var(--pjv-text-main);
+}
+
+/* Backward-compatible .pjv-toolbar selector */
+.pjv-toolbar {
+  display: flex;
+  flex-direction: column;
 }
 
 .pjv-brand {
@@ -326,7 +402,7 @@ body, html {
   background: var(--pjv-bg-badge);
   border: 1px solid var(--pjv-border-color);
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 3px 8px;
   flex: 1;
   min-width: 220px;
   max-width: 450px;

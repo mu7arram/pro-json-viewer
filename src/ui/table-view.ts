@@ -4,6 +4,7 @@ export interface TableViewOptions {
   container: HTMLElement;
   data: any;
   scanDepth?: number;
+  maxDepth?: number;
   onCopyToast?: (msg: string) => void;
 }
 
@@ -122,12 +123,14 @@ export class TableView {
   private sortAsc: boolean = true;
   private searchQuery: string = '';
   private scanDepth: number = 3;
+  private maxDepth: number = 20;
   private onCopyToast?: (msg: string) => void;
 
   constructor(options: TableViewOptions) {
     this.container = options.container;
     this.rawData = options.data;
     this.scanDepth = options.scanDepth || 3;
+    this.maxDepth = options.maxDepth || 20;
     this.onCopyToast = options.onCopyToast;
 
     this.initDatasets();
@@ -321,7 +324,7 @@ export class TableView {
     dotTrack.className = 'pjv-dot-slider-track';
 
     const dotElements: HTMLElement[] = [];
-    const maxDepthVal = 20;
+    const maxDepthVal = Math.min(Math.max(2, this.maxDepth), 20);
     for (let i = 1; i <= maxDepthVal; i++) {
       const dot = document.createElement('div');
       dot.className = 'pjv-dot-step';

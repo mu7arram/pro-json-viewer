@@ -197,10 +197,8 @@ async function launchScratchpad(container: HTMLElement) {
         applyRender();
 
         const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
-        const statsEl = toolbarContainer.querySelector('#pjv-badge-stats');
-        if (statsEl) {
-          statsEl.textContent = `📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`;
-        }
+        toolbar.updateMaxDepth(stats.maxDepth);
+        toolbar.updateStatsSummary(`📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`);
 
         if (typeof chrome !== 'undefined' && chrome.storage?.local) {
           chrome.storage.local.set({ pjv_scratchpad_json: currentJsonText });
@@ -215,6 +213,7 @@ async function launchScratchpad(container: HTMLElement) {
     container: toolbarContainer,
     currentTheme: settings.theme,
     statsSummary,
+    maxDepth: parseResult.maxDepth,
     onThemeChange: async (newTheme) => {
       document.documentElement.setAttribute('data-theme', newTheme === 'system'
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -236,6 +235,7 @@ async function launchScratchpad(container: HTMLElement) {
           container: tableContainer,
           data: jsonObject,
           scanDepth: settings.tableScanDepth || 3,
+          maxDepth: parseResult.maxDepth,
           onCopyToast: showToast
         });
       } else if (mode === 'chart') {
@@ -243,6 +243,7 @@ async function launchScratchpad(container: HTMLElement) {
         new ChartView({
           container: chartContainer,
           data: jsonObject,
+          maxDepth: parseResult.maxDepth,
           onToast: showToast
         });
       } else if (mode === 'diagram') {
@@ -251,9 +252,33 @@ async function launchScratchpad(container: HTMLElement) {
           container: diagramContainer,
           data: jsonObject,
           defaultDepth: settings.defaultExpandDepth || 2,
+          maxDepth: parseResult.maxDepth,
           onToast: showToast
         });
       }
+    },
+    onRawFormat: () => {
+      try {
+        const obj = JSON.parse(rawContainer.value);
+        rawContainer.value = JSON.stringify(obj, null, 2);
+        showToast('✨ Formatted JSON with 2-space indentation');
+      } catch (err: any) {
+        showToast(`⚠️ Syntax error: ${err.message}`);
+      }
+    },
+    onRawMinify: () => {
+      try {
+        const obj = JSON.parse(rawContainer.value);
+        rawContainer.value = JSON.stringify(obj);
+        showToast('📦 Minified JSON to compact single-line');
+      } catch (err: any) {
+        showToast(`⚠️ Syntax error: ${err.message}`);
+      }
+    },
+    onRawWrapToggle: (wrapped: boolean) => {
+      rawContainer.style.whiteSpace = wrapped ? 'pre-wrap' : 'pre';
+      rawContainer.style.overflowWrap = wrapped ? 'break-word' : 'normal';
+      showToast(wrapped ? '↩️ Word wrap enabled' : '➡️ Word wrap disabled');
     },
     onSearchChange: (query, mode) => {
       activeQuery = query;
