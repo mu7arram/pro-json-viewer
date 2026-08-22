@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-20  
-**Version**: 1.8.0  
+**Last Updated**: 2026-08-22  
+**Version**: 1.9.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -12,12 +12,15 @@
 Pro JSON Viewer
 
 ### Short Description (max 132 chars)
-Fast, virtualized Manifest V3 JSON viewer with schema health inspector, off-thread Web Worker parser, diagram graph, and dev tools.
+Fast, virtualized Manifest V3 JSON viewer with dual-editor diff suite, adaptive toolbars, schema health auditor, and dev tools.
 
 ### Detailed Description
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
 
 **Key Features:**
+- 🔀 **Full Dual-Editor Side-by-Side Diff Suite**: Dedicated two-column comparison studio with live syntax validation, one-click dual formatting (`✨ Format Both`), side swapping (`🔄 Swap Sides`), and an expandable color-coded visual diff tree (`+ Added`, `- Removed`, `~ Modified`).
+- 🧭 **Contextual Adaptive Toolbars**: Persistent 2-tier toolbar layout that dynamically swaps contextual controls (Search & dynamic depth for Tree, Beautify/Minify/Wrap for Raw, view indicators for Table/Chart/Diagram/Diff) without visual clutter.
+- 📐 **Dynamic JSON Depth Detection**: Automatically computes the exact nesting hierarchy depth of any document, dynamically bounding depth buttons (`D1..D{max}`) across Tree, Diagram, Table, and Chart views.
 - 🩺 **Schema Health & Anomaly Inspector**: Automated schema drift and data quality audits for API array payloads. Computes compliance health scores (0–100%), detects polymorphic type inconsistencies (e.g. `int` vs `string`), identifies missing required properties, tracks presence & null rates, and exports markdown audit reports.
 - ⚡ **Web Worker Off-Thread Parser (50MB+)**: Deserializes and traverses massive multi-megabyte payloads off the main thread with zero browser tab freezing and silky smooth 60fps UI responsiveness.
 - ⏳ **Glassmorphism Progress Loader**: Live progress indicator for large payloads with animated spinner, dynamic byte counters, and parse benchmark timer.
@@ -32,7 +35,6 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 - 📊 **Tabbed Table View**: Automatically converts arrays into interactive sortable tables with magnetic scan depth controls (1–20 levels) and context-aware sub-array cell badges.
 - 📈 **Visual Chart Dashboard**: Interactive SVG analytics dashboard featuring Donut/Pie charts, Vertical & Horizontal Bar charts, string category aggregations (*Count by Category*), label/value column pickers, Top-N filtering, and Min/Max/Avg/Sum summary cards.
 - 💡 **Smart Value Decoders**: Auto-detects and displays inline decoders for ISO dates, Unix timestamps, JWT tokens, URLs, Base64 strings, and array schema anomalies.
-- 🔀 **Structural Diff Mode**: Compare two JSON payloads side-by-side or inline to spot added, removed, or modified keys instantly.
 - 🎨 **Modern Themes**: Sleek theme preset engine (Dracula, One Dark, Monokai, Nord, GitHub Dark/Light, Slate) with instant live storage sync and quick toolbar switcher.
 - 🔒 **100% Local & Private**: Completely offline processing. Zero external network requests, zero analytics, zero telemetry.
 
@@ -56,7 +58,15 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 
 ## 4. Version History
 
-### Version 1.8.0 (2026-08-20)
+### Version 1.9.0 (2026-08-22)
+- Added **Full Dual-Editor Side-by-Side Diff Suite (`DiffView`)**: Dedicated full-viewport comparison studio replacing the modal. Features editable Left (Baseline) and Right (Target) editors with real-time character/line counters.
+- Added **Live Real-Time Syntax Validation**: Instant syntax checking in both Diff editors with color-coded status pills (`✓ Valid JSON` / `⚠️ Invalid`) and line-error banners.
+- Added **Visual Diff Tree Inspector**: Interactive highlighted tree with color-coded additions (`+ Added` green), deletions (`- Removed` red), and modifications (`~ Modified` amber with old $\rightarrow$ new values) plus Diff filter tabs (All, Added, Removed, Modified).
+- Added **One-Click Diff Actions**: `✨ Format Both` (2-space dual formatting), `🔄 Swap Sides` (instant Left $\leftrightarrow$ Right exchange), and `📋 Sample` payload loader.
+- Added **Contextual 2-Tier Adaptive Toolbars (`Toolbar`)**: Clean global top tier for view switching and utilities; contextual bottom sub-toolbar adapting dynamically per active view mode (Tree, Raw, Table, Chart, Diagram, Diff).
+- Added **Dynamic Document Max-Depth Detection (`getJsonMaxDepth`)**: Automatically computes exact maximum hierarchy depth, dynamically bounding `D1..D{max}` buttons across Tree and Diagram views, and bounding magnetic sliders in Table and Chart views.
+- Added **Raw View Editor Controls**: One-click `✨ Beautify` (2 spaces), `📦 Minify` (compact 1-line), and `↩️ Word Wrap` editor controls.
+- Added **Complete Vitest Automated Test Suite**: 11 unit test suites covering 39 unit tests for all core engines, views, and worker bridge (100% green).
 - Added **Schema Structure & Anomaly Health Inspector Panel (`SchemaHealthEngine`)**: Automated data quality auditor discovering array collections, calculating property presence and null rates, and pinpointing individual record anomalies.
 - Added **Polymorphic Type Drift Detection**: Flags fields with mixed data types across records (e.g., numbers stored as strings).
 - Added **Missing Required Property Detection**: Highlights rows missing dominant schema fields.

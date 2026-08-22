@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pro JSON Viewer",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "High-performance, virtualized JSON viewer with search, JSONPath, smart decoders, and diff mode.",
   "icons": {
     "16": "icons/icon-16.png",
