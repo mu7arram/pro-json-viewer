@@ -62,14 +62,18 @@ Explore deeply nested hierarchies through an interactive visual canvas.
 ---
 
 ### 🔀 5. Full Dual-Editor Side-by-Side Diff Suite
-A dedicated comparison studio to inspect changes between two JSON payloads.
+A dedicated comparison studio to inspect changes between two JSON payloads with real-time feedback.
 
 ![Dual-Editor Diff Suite Preview](assets/screenshots/diff_view.jpg)
 
-- **Dual-Pane Workspace**: Left (Baseline) and Right (Target) text editors with live character and line counters.
-- **Real-Time Syntax Validation**: Instant error pills and banners highlighting syntax errors before diffing.
+- **Real-Time Auto-Diff**: Debounced background computation recalculates differences and updates stats pills (`+Added`, `-Removed`, `~Modified`) live as you type or paste.
+- **Synchronized Dual-Pane Scrolling**: Keeps Baseline and Target documents aligned vertically with a one-click `🔗 Sync Scroll` toggle.
+- **One-Click Clipboard Paste & File Drop**: Instant `📥 Paste` buttons on both headers, plus drag-and-drop support for `.json` and `.txt` files with visual dropzone borders.
+- **Apply Target to Viewer**: Promote the modified payload back to the main viewer in one click with instant transition to Tree view.
+- **Auto-Sort Object Keys**: Eliminate false positives caused by non-deterministic key ordering across different backend APIs.
+- **Difference Stepping Navigation**: Jump between changed nodes using `▲ Prev` and `▼ Next` buttons with smooth scrolling and animated focus glow.
 - **Visual Diff Tree**: Expandable color-coded tree featuring **`+ Added` (green)**, **`- Removed` (red)**, and **`~ Modified` (amber)** with old $\rightarrow$ new value transitions.
-- **Interactive Action Bar**: One-click **`✨ Format Both`**, **`🔄 Swap Sides`**, and **`📋 Sample Data`** loading.
+
 
 ---
 

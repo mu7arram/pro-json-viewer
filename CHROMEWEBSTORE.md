@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-22  
-**Version**: 1.9.0  
+**Last Updated**: 2026-08-23  
+**Version**: 2.0.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -18,7 +18,7 @@ Fast, virtualized Manifest V3 JSON viewer with dual-editor diff suite, adaptive 
 Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json` documents into an ultra-fast, virtualized, interactive tree view designed for developers and power users.
 
 **Key Features:**
-- 🔀 **Full Dual-Editor Side-by-Side Diff Suite**: Dedicated two-column comparison studio with live syntax validation, one-click dual formatting (`✨ Format Both`), side swapping (`🔄 Swap Sides`), and an expandable color-coded visual diff tree (`+ Added`, `- Removed`, `~ Modified`).
+- 🔀 **Full Dual-Editor Side-by-Side Diff Suite**: Dedicated two-column comparison studio with live real-time auto-diff, synchronized scrolling, one-click clipboard paste, drag-and-drop file upload, auto-sort keys, diff stepper navigation, and visual diff tree.
 - 🧭 **Contextual Adaptive Toolbars**: Persistent 2-tier toolbar layout that dynamically swaps contextual controls (Search & dynamic depth for Tree, Beautify/Minify/Wrap for Raw, view indicators for Table/Chart/Diagram/Diff) without visual clutter.
 - 📐 **Dynamic JSON Depth Detection**: Automatically computes the exact nesting hierarchy depth of any document, dynamically bounding depth buttons (`D1..D{max}`) across Tree, Diagram, Table, and Chart views.
 - 🩺 **Schema Health & Anomaly Inspector**: Automated schema drift and data quality audits for API array payloads. Computes compliance health scores (0–100%), detects polymorphic type inconsistencies (e.g. `int` vs `string`), identifies missing required properties, tracks presence & null rates, and exports markdown audit reports.
@@ -57,6 +57,21 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 2.0.0 (2026-08-23)
+- Added **Enhanced Dual-Editor Diff Workspace UX (#30)**:
+  - **📋 One-Click Clipboard Paste & File Drop**: Added instant `📥 Paste` buttons in both editor headers and drag-and-drop local file loading with visual dashed dropzones.
+  - **⚡ Real-Time Auto-Diff**: Added 300ms debounced input listeners to automatically recalculate diffs and update stats pills (`+Added`, `-Removed`, `~Modified`) live as the user types or pastes.
+  - **🔄 Synchronized Dual-Pane Scrolling**: Added proportional scroll-locking between Baseline and Target textareas with a one-click `🔗 Sync Scroll` ON/OFF toggle.
+  - **📥 Apply Target to Viewer**: Added one-click action on Right editor to promote the modified payload back to the main viewer and transition directly to Tree view.
+  - **🔤 Auto-Sort Object Keys**: Added toggle to recursively sort object keys alphabetically before diffing to eliminate false positives from differing key serialization orders.
+  - **⏭️ Difference Stepping Navigation**: Added `▲ Prev` and `▼ Next` navigation buttons with counter in Diff Tree tab, featuring smooth scrolling and animated focus glow.
+- Added **Automated GitHub Actions CI Pipeline & E2E Testing (#32)**:
+  - Configured automated GitHub Actions workflow (`.github/workflows/ci.yml`) on Node.js 22.
+  - Implemented Playwright E2E browser testing suite (`tests/e2e/extension.spec.ts`) in headless Chrome extension context.
+- Enhanced **Testing & Stability**:
+  - Expanded Vitest unit test suite to 43 passing tests across 11 test suites.
+  - Updated lockfile with authentic cryptographic hashes for `esbuild@0.28.2`.
 
 ### Version 1.9.0 (2026-08-22)
 - Added **Full Dual-Editor Side-by-Side Diff Suite (`DiffView`)**: Dedicated full-viewport comparison studio replacing the modal. Features editable Left (Baseline) and Right (Target) editors with real-time character/line counters.
