@@ -2301,10 +2301,41 @@ body, html {
 }
 
 .pjv-diff-path {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--pjv-text-muted, #94a3b8);
-  margin-left: auto;
-  padding-left: 16px;
+  margin-left: 12px;
+}
+
+.pjv-diff-pane.drag-over {
+  border: 2px dashed var(--pjv-accent-color, #38bdf8) !important;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.pjv-diff-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pjv-diff-step-counter {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pjv-text-muted, #94a3b8);
+  padding: 0 6px;
+  user-select: none;
+  min-width: 48px;
+  text-align: center;
+}
+
+.pjv-diff-row.pjv-diff-row-focused {
+  outline: 2px solid var(--pjv-accent-color, #38bdf8);
+  outline-offset: -1px;
+  animation: pjv-diff-focus-pulse 1.2s ease;
+}
+
+@keyframes pjv-diff-focus-pulse {
+  0% { background: rgba(56, 189, 248, 0.35); }
+  100% { }
 }
 
 .pjv-diff-empty {

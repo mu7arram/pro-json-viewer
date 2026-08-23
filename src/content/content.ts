@@ -119,7 +119,18 @@ async function initProJsonViewer() {
         new DiffView({
           container: diffContainer,
           primaryData: jsonObject,
-          onToast: showToast
+          onToast: showToast,
+          onApplyToViewer: (updatedData) => {
+            jsonObject = updatedData;
+            rawContainer.value = JSON.stringify(jsonObject, null, 2);
+            expandedStateMap.clear();
+            currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+            applySearchAndRender();
+            toolbar.setViewMode('tree');
+            viewportContainer.style.display = 'block';
+            rawContainer.style.display = 'none';
+            diffContainer.style.display = 'none';
+          }
         });
       }
     },

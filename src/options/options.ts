@@ -266,7 +266,31 @@ async function launchScratchpad(container: HTMLElement) {
         new DiffView({
           container: diffContainer,
           primaryData: jsonObject,
-          onToast: showToast
+          onToast: showToast,
+          onApplyToViewer: (updatedData) => {
+            jsonObject = updatedData;
+            currentJsonText = JSON.stringify(jsonObject, null, 2);
+            rawContainer.value = currentJsonText;
+            expandedStateMap.clear();
+            currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+            applyRender();
+
+            const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
+            toolbar.updateMaxDepth(stats.maxDepth);
+            toolbar.updateStatsSummary(`📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`);
+            toolbar.setViewMode('tree');
+
+            viewportContainer.style.display = 'block';
+            rawContainer.style.display = 'none';
+            tableContainer.style.display = 'none';
+            chartContainer.style.display = 'none';
+            diagramContainer.style.display = 'none';
+            diffContainer.style.display = 'none';
+
+            if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+              chrome.storage.local.set({ pjv_scratchpad_json: currentJsonText });
+            }
+          }
         });
       }
     },
