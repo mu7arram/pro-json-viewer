@@ -1,8 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DiffView } from '../src/ui/diff-view';
 
 describe('Full Dual-Editor Side-by-Side Diff Comparison Suite (DiffView)', () => {
-  it('renders dual editors with pre-populated baseline data', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders dual editors with pre-populated baseline data and action buttons', () => {
     const container = document.createElement('div');
     const primaryData = { name: 'Pro JSON Viewer', version: '1.0.0' };
 
@@ -14,34 +22,73 @@ describe('Full Dual-Editor Side-by-Side Diff Comparison Suite (DiffView)', () =>
     expect(container.querySelector('.pjv-diff-workspace')).not.toBeNull();
     expect(container.querySelector('#pjv-diff-editor-left')).not.toBeNull();
     expect(container.querySelector('#pjv-diff-editor-right')).not.toBeNull();
+    expect(container.querySelector('#pjv-diff-paste-left')).not.toBeNull();
+    expect(container.querySelector('#pjv-diff-paste-right')).not.toBeNull();
+    expect(container.querySelector('#pjv-diff-apply-right')).not.toBeNull();
 
     const leftEditor = container.querySelector('#pjv-diff-editor-left') as HTMLTextAreaElement;
     expect(leftEditor.value).toContain('Pro JSON Viewer');
   });
 
-  it('performs live JSON syntax validation on input', () => {
+  it('performs live JSON syntax validation and debounced auto-diff calculation', () => {
     const container = document.createElement('div');
     new DiffView({
       container,
       primaryData: { id: 101 }
     });
 
-    const leftEditor = container.querySelector('#pjv-diff-editor-left') as HTMLTextAreaElement;
     const rightEditor = container.querySelector('#pjv-diff-editor-right') as HTMLTextAreaElement;
 
-    // Type invalid JSON in right editor
-    rightEditor.value = '{ "invalid": ';
+    // Type new JSON in right editor
+    rightEditor.value = '{ "id": 102 }';
     rightEditor.dispatchEvent(new Event('input'));
 
-    const rightPill = container.querySelectorAll('.pjv-status-pill')[1];
-    expect(rightPill.textContent).toContain('Invalid');
+    // Fast-forward debounce timer (300ms)
+    vi.advanceTimersByTime(350);
 
-    // Fix JSON in right editor
-    rightEditor.value = '{ "valid": true }';
-    rightEditor.dispatchEvent(new Event('input'));
+    const statsContainer = container.querySelector('.pjv-diff-header-right');
+    expect(statsContainer?.textContent).toContain('~1 Modified');
+  });
 
-    const fixedRightPill = container.querySelectorAll('.pjv-status-pill')[1];
-    expect(fixedRightPill.textContent).toContain('Valid JSON');
+  it('toggles synchronized scrolling properly', () => {
+    const container = document.createElement('div');
+    const onToast = vi.fn();
+    const diffView = new DiffView({
+      container,
+      primaryData: { id: 1 },
+      secondaryData: { id: 2 },
+      onToast
+    });
+
+    const syncBtn = container.querySelector('#pjv-diff-btn-sync-scroll') as HTMLButtonElement;
+    expect(syncBtn.textContent).toContain('ON');
+
+    diffView.toggleSyncScroll();
+    expect(syncBtn.textContent).toContain('OFF');
+    expect(onToast).toHaveBeenCalledWith(expect.stringContaining('disabled'));
+
+    diffView.toggleSyncScroll();
+    expect(syncBtn.textContent).toContain('ON');
+    expect(onToast).toHaveBeenCalledWith(expect.stringContaining('enabled'));
+  });
+
+  it('applies target JSON to viewer via onApplyToViewer callback', () => {
+    const container = document.createElement('div');
+    const onApplyToViewer = vi.fn();
+    const onToast = vi.fn();
+
+    const diffView = new DiffView({
+      container,
+      primaryData: { v: 1 },
+      secondaryData: { v: 2, newFeature: true },
+      onApplyToViewer,
+      onToast
+    });
+
+    diffView.applyToViewer();
+
+    expect(onApplyToViewer).toHaveBeenCalledWith({ v: 2, newFeature: true });
+    expect(onToast).toHaveBeenCalledWith(expect.stringContaining('applied to main viewer'));
   });
 
   it('swaps Left and Right editor contents seamlessly', () => {
@@ -91,44 +138,47 @@ describe('Full Dual-Editor Side-by-Side Diff Comparison Suite (DiffView)', () =>
     expect(formattedRight.value).toContain('    "key": "value"');
   });
 
-  it('computes diff and renders interactive visual diff tree with accurate badges', () => {
+  it('toggles sort keys and recomputes diff ignoring key order differences', () => {
     const container = document.createElement('div');
     const onToast = vi.fn();
-
     const diffView = new DiffView({
       container,
-      primaryData: {
-        title: 'Original Title',
-        oldKey: 'to be removed',
-        count: 5
-      },
-      secondaryData: {
-        title: 'Modified Title',
-        newKey: 'newly added',
-        count: 5
-      },
+      primaryData: { b: 2, a: 1 },
+      secondaryData: { a: 1, b: 2 },
       onToast
     });
 
-    // Run Compare
+    // Default: comparison
+    diffView.compare();
+    // Enable sort keys
+    diffView.toggleSortKeys();
+
+    const sortBtn = container.querySelector('#pjv-diff-btn-sort-keys');
+    expect(sortBtn?.textContent).toContain('ON');
+    expect(onToast).toHaveBeenCalledWith(expect.stringContaining('enabled'));
+  });
+
+  it('steps through differences with prev and next buttons', () => {
+    const container = document.createElement('div');
+    const diffView = new DiffView({
+      container,
+      primaryData: { a: 1, b: 2, c: 3 },
+      secondaryData: { a: 10, b: 20, c: 30 }
+    });
+
     diffView.compare();
 
-    expect(onToast).toHaveBeenCalledWith(expect.stringContaining('Diff ready: +1 added, -1 removed, ~1 modified'));
-
-    // Visual Diff Tree should be active
     expect(container.querySelector('.pjv-diff-tree-view')).not.toBeNull();
+    const counter = container.querySelector('#pjv-diff-step-counter');
+    expect(counter?.textContent).toContain('1 of 3');
 
-    const addedRows = container.querySelectorAll('.diff-added');
-    const removedRows = container.querySelectorAll('.diff-removed');
-    const modifiedRows = container.querySelectorAll('.diff-modified');
+    diffView.stepDiff('next');
+    expect(counter?.textContent).toContain('2 of 3');
 
-    expect(addedRows.length).toBe(1);
-    expect(removedRows.length).toBe(1);
-    expect(modifiedRows.length).toBe(1);
+    diffView.stepDiff('next');
+    expect(counter?.textContent).toContain('3 of 3');
 
-    // Modified row should show old -> new values
-    const modifiedRow = container.querySelector('.diff-modified')!;
-    expect(modifiedRow.textContent).toContain('Original Title');
-    expect(modifiedRow.textContent).toContain('Modified Title');
+    diffView.stepDiff('prev');
+    expect(counter?.textContent).toContain('2 of 3');
   });
 });

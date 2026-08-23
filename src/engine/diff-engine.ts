@@ -63,3 +63,22 @@ export function computeStructuralDiff(
 
   return { diffNodes, stats };
 }
+
+/**
+ * Recursively sort object keys alphabetically to ensure key order does not produce false diffs.
+ */
+export function sortObjectKeys(data: any): any {
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(sortObjectKeys);
+  }
+  const sortedKeys = Object.keys(data).sort();
+  const result: Record<string, any> = {};
+  for (const key of sortedKeys) {
+    result[key] = sortObjectKeys(data[key]);
+  }
+  return result;
+}
+

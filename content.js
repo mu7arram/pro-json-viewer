@@ -364,6 +364,21 @@ function computeStructuralDiff(primaryData, secondaryData) {
   return { diffNodes, stats };
 }
 
+function sortObjectKeys(data) {
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(sortObjectKeys);
+  }
+  const sortedKeys = Object.keys(data).sort();
+  const result = {};
+  for (const key of sortedKeys) {
+    result[key] = sortObjectKeys(data[key]);
+  }
+  return result;
+}
+
 // --- 5. DOM VIRTUALIZER ENGINE ---
 class Virtualizer {
   constructor(options) {
@@ -3437,6 +3452,7 @@ class DiffView {
     this.primaryData = options.primaryData;
     this.secondaryData = options.secondaryData;
     this.onToast = options.onToast;
+    this.onApplyToViewer = options.onApplyToViewer;
 
     this.leftText = this.primaryData !== undefined ? JSON.stringify(this.primaryData, null, 2) : '';
     this.rightText = this.secondaryData !== undefined ? JSON.stringify(this.secondaryData, null, 2) : '';
@@ -3450,6 +3466,12 @@ class DiffView {
     this.diffResult = null;
     this.diffFilter = 'all';
     this.searchQuery = '';
+
+    this.syncScroll = true;
+    this.sortKeys = false;
+    this.isSyncingScroll = false;
+    this.autoDiffTimer = null;
+    this.currentDiffIndex = 0;
 
     this.validateInputs();
     this.runInitialDiff();
@@ -3489,14 +3511,74 @@ class DiffView {
   runInitialDiff() {
     if (this.leftValid && this.rightValid) {
       try {
-        const leftObj = JSON.parse(this.leftText);
-        const rightObj = JSON.parse(this.rightText);
+        let leftObj = JSON.parse(this.leftText);
+        let rightObj = JSON.parse(this.rightText);
+        if (this.sortKeys) {
+          leftObj = sortObjectKeys(leftObj);
+          rightObj = sortObjectKeys(rightObj);
+        }
         this.diffResult = computeStructuralDiff(leftObj, rightObj);
       } catch {
         this.diffResult = null;
       }
     } else {
       this.diffResult = null;
+    }
+  }
+
+  scheduleAutoDiff() {
+    if (this.autoDiffTimer) {
+      clearTimeout(this.autoDiffTimer);
+    }
+    this.autoDiffTimer = setTimeout(() => {
+      this.runAutoDiff();
+    }, 300);
+  }
+
+  runAutoDiff() {
+    this.validateInputs();
+    if (this.leftValid && this.rightValid) {
+      try {
+        let leftObj = JSON.parse(this.leftText);
+        let rightObj = JSON.parse(this.rightText);
+        if (this.sortKeys) {
+          leftObj = sortObjectKeys(leftObj);
+          rightObj = sortObjectKeys(rightObj);
+        }
+        this.diffResult = computeStructuralDiff(leftObj, rightObj);
+      } catch {
+        this.diffResult = null;
+      }
+    } else {
+      this.diffResult = null;
+    }
+    this.updateStatsPills();
+  }
+
+  updateStatsPills() {
+    const statsContainer = this.container.querySelector('.pjv-diff-header-right');
+    if (!statsContainer) return;
+
+    const stats = this.diffResult?.stats || { added: 0, removed: 0, modified: 0 };
+    const hasDiff = this.diffResult !== null;
+
+    if (hasDiff) {
+      statsContainer.innerHTML = `
+        <div class="pjv-diff-stats-pills">
+          <span class="pjv-diff-pill added">+${stats.added} Added</span>
+          <span class="pjv-diff-pill removed">-${stats.removed} Removed</span>
+          <span class="pjv-diff-pill modified">~${stats.modified} Modified</span>
+        </div>
+      `;
+    } else {
+      statsContainer.innerHTML = `
+        <span class="pjv-diff-hint">Paste or edit JSON on both sides for real-time diff</span>
+      `;
+    }
+
+    const treeTabBtn = this.container.querySelector('#pjv-diff-tab-tree');
+    if (treeTabBtn) {
+      treeTabBtn.textContent = `🔀 Visual Diff Tree ${hasDiff ? `(${stats.added + stats.removed + stats.modified} diffs)` : ''}`;
     }
   }
 
@@ -3514,10 +3596,15 @@ class DiffView {
     }
 
     try {
-      const leftObj = JSON.parse(this.leftText);
-      const rightObj = JSON.parse(this.rightText);
+      let leftObj = JSON.parse(this.leftText);
+      let rightObj = JSON.parse(this.rightText);
+      if (this.sortKeys) {
+        leftObj = sortObjectKeys(leftObj);
+        rightObj = sortObjectKeys(rightObj);
+      }
       this.diffResult = computeStructuralDiff(leftObj, rightObj);
       this.activeTab = 'tree';
+      this.currentDiffIndex = 0;
       this.render();
       if (this.onToast) {
         const { added, removed, modified } = this.diffResult.stats;
@@ -3547,6 +3634,7 @@ class DiffView {
     }
 
     this.validateInputs();
+    this.runInitialDiff();
     this.render();
     if (this.onToast) {
       if (formattedLeft && formattedRight) this.onToast('✨ Formatted both JSON documents');
@@ -3577,6 +3665,121 @@ class DiffView {
     this.diffResult = null;
     this.render();
     if (this.onToast) this.onToast('🧹 Cleared editor content');
+  }
+
+  async pasteFromClipboard(side) {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        if (this.onToast) this.onToast('⚠️ Clipboard is empty');
+        return;
+      }
+      if (side === 'left') {
+        this.leftText = text;
+      } else {
+        this.rightText = text;
+      }
+      this.validateInputs();
+      this.runInitialDiff();
+      this.render();
+      if (this.onToast) this.onToast(`📥 Pasted clipboard into ${side === 'left' ? 'Baseline' : 'Target'} editor`);
+    } catch (err) {
+      if (this.onToast) this.onToast(`⚠️ Clipboard paste error: ${err.message || 'Permission denied'}`);
+    }
+  }
+
+  loadFile(side, file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result;
+      if (content !== undefined) {
+        if (side === 'left') {
+          this.leftText = content;
+        } else {
+          this.rightText = content;
+        }
+        this.validateInputs();
+        this.runInitialDiff();
+        this.render();
+        if (this.onToast) this.onToast(`📁 Loaded "${file.name}" into ${side === 'left' ? 'Baseline' : 'Target'} editor`);
+      }
+    };
+    reader.onerror = () => {
+      if (this.onToast) this.onToast(`⚠️ Failed to read file: ${file.name}`);
+    };
+    reader.readAsText(file);
+  }
+
+  applyToViewer() {
+    this.validateInputs();
+    if (!this.rightValid) {
+      if (this.onToast) this.onToast(`⚠️ Cannot apply invalid target JSON: ${this.rightErrorMsg}`);
+      return;
+    }
+    try {
+      const parsedData = JSON.parse(this.rightText);
+      if (this.onApplyToViewer) {
+        this.onApplyToViewer(parsedData);
+      }
+      if (this.onToast) this.onToast('✨ Target payload applied to main viewer!');
+    } catch (err) {
+      if (this.onToast) this.onToast(`⚠️ Apply failed: ${err.message}`);
+    }
+  }
+
+  toggleSyncScroll() {
+    this.syncScroll = !this.syncScroll;
+    const btn = this.container.querySelector('#pjv-diff-btn-sync-scroll');
+    if (btn) {
+      btn.className = `pjv-btn ${this.syncScroll ? 'active' : ''}`;
+      btn.innerHTML = `🔗 Sync Scroll: ${this.syncScroll ? 'ON' : 'OFF'}`;
+    }
+    if (this.onToast) {
+      this.onToast(`Synchronized scroll ${this.syncScroll ? 'enabled' : 'disabled'}`);
+    }
+  }
+
+  toggleSortKeys() {
+    this.sortKeys = !this.sortKeys;
+    const btn = this.container.querySelector('#pjv-diff-btn-sort-keys');
+    if (btn) {
+      btn.className = `pjv-btn ${this.sortKeys ? 'active' : ''}`;
+      btn.innerHTML = `🔤 Sort Keys: ${this.sortKeys ? 'ON' : 'OFF'}`;
+    }
+    this.runAutoDiff();
+    if (this.onToast) {
+      this.onToast(`Ignore key order (auto-sort) ${this.sortKeys ? 'enabled' : 'disabled'}`);
+    }
+  }
+
+  stepDiff(direction) {
+    const diffRows = Array.from(this.container.querySelectorAll('.pjv-diff-row.diff-added, .pjv-diff-row.diff-removed, .pjv-diff-row.diff-modified'));
+    if (diffRows.length === 0) {
+      if (this.onToast) this.onToast('No diff changes found to step through');
+      return;
+    }
+
+    if (direction === 'next') {
+      this.currentDiffIndex = (this.currentDiffIndex + 1) % diffRows.length;
+    } else {
+      this.currentDiffIndex = (this.currentDiffIndex - 1 + diffRows.length) % diffRows.length;
+    }
+
+    diffRows.forEach(r => r.classList.remove('pjv-diff-row-focused'));
+
+    const targetRow = diffRows[this.currentDiffIndex];
+    if (targetRow) {
+      targetRow.classList.add('pjv-diff-row-focused');
+      if (typeof targetRow.scrollIntoView === 'function') {
+        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    const counterEl = this.container.querySelector('#pjv-diff-step-counter');
+    if (counterEl) {
+      counterEl.textContent = `${this.currentDiffIndex + 1} of ${diffRows.length}`;
+    }
   }
 
   setSampleData() {
@@ -3644,6 +3847,12 @@ class DiffView {
           <button id="pjv-diff-btn-swap" class="pjv-btn" title="Swap Left and Right documents">
             🔄 Swap Sides
           </button>
+          <button id="pjv-diff-btn-sync-scroll" class="pjv-btn ${this.syncScroll ? 'active' : ''}" title="Toggle Synchronized Scrolling">
+            🔗 Sync Scroll: ${this.syncScroll ? 'ON' : 'OFF'}
+          </button>
+          <button id="pjv-diff-btn-sort-keys" class="pjv-btn ${this.sortKeys ? 'active' : ''}" title="Ignore key order by sorting object keys">
+            🔤 Sort Keys: ${this.sortKeys ? 'ON' : 'OFF'}
+          </button>
           <button id="pjv-diff-btn-sample" class="pjv-btn" title="Load sample diff payload">
             📋 Sample
           </button>
@@ -3661,7 +3870,7 @@ class DiffView {
             <span class="pjv-diff-pill modified">~${stats.modified} Modified</span>
           </div>
         ` : `
-          <span class="pjv-diff-hint">Paste or edit JSON on both sides and click <strong>Compare Diff</strong></span>
+          <span class="pjv-diff-hint">Paste or edit JSON on both sides for real-time diff</span>
         `}
       </div>
     `;
@@ -3686,11 +3895,15 @@ class DiffView {
             <span class="pjv-status-pill ${this.leftValid ? 'healthy' : 'anomaly'}">
               ${this.leftValid ? '✓ Valid JSON' : '⚠️ Invalid'}
             </span>
+            <button id="pjv-diff-paste-left" class="pjv-btn pjv-btn-xs" title="Paste from clipboard">📥 Paste</button>
+            <button id="pjv-diff-load-left" class="pjv-btn pjv-btn-xs" title="Load JSON from local file">📁 Load</button>
+            <input type="file" id="pjv-diff-file-left" accept=".json,application/json,text/plain" style="display:none;" />
             <button id="pjv-diff-copy-left" class="pjv-btn pjv-btn-xs" title="Copy left JSON">📋 Copy</button>
+            <button id="pjv-diff-clear-left" class="pjv-btn pjv-btn-xs" title="Clear left editor">🧹 Clear</button>
           </div>
         </div>
         ${!this.leftValid && this.leftErrorMsg ? `<div class="pjv-diff-error-banner">⚠️ ${escapeHtml(this.leftErrorMsg)}</div>` : ''}
-        <textarea id="pjv-diff-editor-left" class="pjv-diff-editor" placeholder='Paste Baseline JSON here (e.g. {"version": 1.0, ...})' spellcheck="false"></textarea>
+        <textarea id="pjv-diff-editor-left" class="pjv-diff-editor" placeholder='Paste or drop Baseline JSON here (e.g. {"version": 1.0, ...})' spellcheck="false"></textarea>
       `;
 
       const rightPane = document.createElement('div');
@@ -3707,12 +3920,16 @@ class DiffView {
             <span class="pjv-status-pill ${this.rightValid ? 'healthy' : 'anomaly'}">
               ${this.rightValid ? '✓ Valid JSON' : '⚠️ Invalid'}
             </span>
+            <button id="pjv-diff-paste-right" class="pjv-btn pjv-btn-xs" title="Paste from clipboard">📥 Paste</button>
+            <button id="pjv-diff-load-right" class="pjv-btn pjv-btn-xs" title="Load JSON from local file">📁 Load</button>
+            <input type="file" id="pjv-diff-file-right" accept=".json,application/json,text/plain" style="display:none;" />
             <button id="pjv-diff-copy-right" class="pjv-btn pjv-btn-xs" title="Copy right JSON">📋 Copy</button>
+            <button id="pjv-diff-apply-right" class="pjv-btn pjv-btn-xs pjv-btn-primary" title="Apply Target JSON to Main Viewer">📥 Apply to Viewer</button>
             <button id="pjv-diff-clear-right" class="pjv-btn pjv-btn-xs" title="Clear right editor">🧹 Clear</button>
           </div>
         </div>
         ${!this.rightValid && this.rightErrorMsg ? `<div class="pjv-diff-error-banner">⚠️ ${escapeHtml(this.rightErrorMsg)}</div>` : ''}
-        <textarea id="pjv-diff-editor-right" class="pjv-diff-editor" placeholder='Paste Target JSON here to compare...' spellcheck="false"></textarea>
+        <textarea id="pjv-diff-editor-right" class="pjv-diff-editor" placeholder='Paste or drop Target JSON here to compare...' spellcheck="false"></textarea>
       `;
 
       editorsGrid.appendChild(leftPane);
@@ -3732,6 +3949,12 @@ class DiffView {
           pill.className = `pjv-status-pill ${this.leftValid ? 'healthy' : 'anomaly'}`;
           pill.textContent = this.leftValid ? '✓ Valid JSON' : '⚠️ Invalid';
         }
+        const countEl = leftPane.querySelector('.pjv-diff-char-count');
+        if (countEl) {
+          const lCount = this.leftText ? this.leftText.split('\n').length : 0;
+          countEl.textContent = `${lCount} lines • ${this.leftText.length} chars`;
+        }
+        this.scheduleAutoDiff();
       });
 
       rightTextarea.addEventListener('input', () => {
@@ -3742,7 +3965,59 @@ class DiffView {
           pill.className = `pjv-status-pill ${this.rightValid ? 'healthy' : 'anomaly'}`;
           pill.textContent = this.rightValid ? '✓ Valid JSON' : '⚠️ Invalid';
         }
+        const countEl = rightPane.querySelector('.pjv-diff-char-count');
+        if (countEl) {
+          const rCount = this.rightText ? this.rightText.split('\n').length : 0;
+          countEl.textContent = `${rCount} lines • ${this.rightText.length} chars`;
+        }
+        this.scheduleAutoDiff();
       });
+
+      leftTextarea.addEventListener('scroll', () => {
+        if (!this.syncScroll || this.isSyncingScroll) return;
+        this.isSyncingScroll = true;
+        const leftMax = leftTextarea.scrollHeight - leftTextarea.clientHeight;
+        if (leftMax > 0) {
+          const scrollPct = leftTextarea.scrollTop / leftMax;
+          const rightMax = rightTextarea.scrollHeight - rightTextarea.clientHeight;
+          rightTextarea.scrollTop = scrollPct * rightMax;
+        }
+        requestAnimationFrame(() => { this.isSyncingScroll = false; });
+      });
+
+      rightTextarea.addEventListener('scroll', () => {
+        if (!this.syncScroll || this.isSyncingScroll) return;
+        this.isSyncingScroll = true;
+        const rightMax = rightTextarea.scrollHeight - rightTextarea.clientHeight;
+        if (rightMax > 0) {
+          const scrollPct = rightTextarea.scrollTop / rightMax;
+          const leftMax = leftTextarea.scrollHeight - leftTextarea.clientHeight;
+          leftTextarea.scrollTop = scrollPct * leftMax;
+        }
+        requestAnimationFrame(() => { this.isSyncingScroll = false; });
+      });
+
+      this.setupDragAndDrop(leftPane, 'left');
+      this.setupDragAndDrop(rightPane, 'right');
+
+      const leftFileInput = leftPane.querySelector('#pjv-diff-file-left');
+      leftPane.querySelector('#pjv-diff-load-left')?.addEventListener('click', () => leftFileInput?.click());
+      leftFileInput?.addEventListener('change', () => {
+        if (leftFileInput.files && leftFileInput.files[0]) {
+          this.loadFile('left', leftFileInput.files[0]);
+        }
+      });
+
+      const rightFileInput = rightPane.querySelector('#pjv-diff-file-right');
+      rightPane.querySelector('#pjv-diff-load-right')?.addEventListener('click', () => rightFileInput?.click());
+      rightFileInput?.addEventListener('change', () => {
+        if (rightFileInput.files && rightFileInput.files[0]) {
+          this.loadFile('right', rightFileInput.files[0]);
+        }
+      });
+
+      leftPane.querySelector('#pjv-diff-paste-left')?.addEventListener('click', () => this.pasteFromClipboard('left'));
+      rightPane.querySelector('#pjv-diff-paste-right')?.addEventListener('click', () => this.pasteFromClipboard('right'));
 
       leftPane.querySelector('#pjv-diff-copy-left')?.addEventListener('click', () => {
         copyToClipboard(this.leftText);
@@ -3754,11 +4029,16 @@ class DiffView {
         if (this.onToast) this.onToast('Copied target JSON!');
       });
 
+      leftPane.querySelector('#pjv-diff-clear-left')?.addEventListener('click', () => this.clear('left'));
       rightPane.querySelector('#pjv-diff-clear-right')?.addEventListener('click', () => this.clear('right'));
+
+      rightPane.querySelector('#pjv-diff-apply-right')?.addEventListener('click', () => this.applyToViewer());
 
     } else {
       const treeViewWrapper = document.createElement('div');
       treeViewWrapper.className = 'pjv-diff-tree-view';
+
+      const totalDiffs = (stats.added + stats.removed + stats.modified);
 
       const filterBar = document.createElement('div');
       filterBar.className = 'pjv-diff-filter-bar';
@@ -3772,6 +4052,17 @@ class DiffView {
 
         <div class="pjv-diff-tree-search">
           <input type="text" id="pjv-diff-search-input" placeholder="Search diff properties or values..." value="${escapeHtml(this.searchQuery)}" />
+        </div>
+
+        <div class="pjv-btn-group pjv-diff-stepper">
+          <button id="pjv-diff-prev" class="pjv-btn" title="Jump to previous changed row">▲ Prev</button>
+          <span id="pjv-diff-step-counter" class="pjv-diff-step-counter">${totalDiffs > 0 ? `${this.currentDiffIndex + 1} of ${totalDiffs}` : '0 diffs'}</span>
+          <button id="pjv-diff-next" class="pjv-btn" title="Jump to next changed row">▼ Next</button>
+        </div>
+
+        <div class="pjv-btn-group">
+          <button id="pjv-diff-expand-all" class="pjv-btn">Expand All</button>
+          <button id="pjv-diff-collapse-all" class="pjv-btn">Collapse All</button>
         </div>
       `;
 
@@ -3855,6 +4146,9 @@ class DiffView {
       filterBar.querySelector('#pjv-filter-diff-removed')?.addEventListener('click', () => { this.diffFilter = 'removed'; this.render(); });
       filterBar.querySelector('#pjv-filter-diff-modified')?.addEventListener('click', () => { this.diffFilter = 'modified'; this.render(); });
 
+      filterBar.querySelector('#pjv-diff-prev')?.addEventListener('click', () => this.stepDiff('prev'));
+      filterBar.querySelector('#pjv-diff-next')?.addEventListener('click', () => this.stepDiff('next'));
+
       const searchInput = filterBar.querySelector('#pjv-diff-search-input');
       searchInput?.addEventListener('input', () => {
         this.searchQuery = searchInput.value.trim();
@@ -3877,8 +4171,33 @@ class DiffView {
     header.querySelector('#pjv-diff-btn-compare')?.addEventListener('click', () => this.compare());
     header.querySelector('#pjv-diff-btn-format')?.addEventListener('click', () => this.formatBoth());
     header.querySelector('#pjv-diff-btn-swap')?.addEventListener('click', () => this.swapSides());
+    header.querySelector('#pjv-diff-btn-sync-scroll')?.addEventListener('click', () => this.toggleSyncScroll());
+    header.querySelector('#pjv-diff-btn-sort-keys')?.addEventListener('click', () => this.toggleSortKeys());
     header.querySelector('#pjv-diff-btn-sample')?.addEventListener('click', () => this.setSampleData());
     header.querySelector('#pjv-diff-btn-clear')?.addEventListener('click', () => this.clear('right'));
+  }
+
+  setupDragAndDrop(pane, side) {
+    pane.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      pane.classList.add('drag-over');
+    });
+
+    pane.addEventListener('dragleave', () => {
+      pane.classList.remove('drag-over');
+    });
+
+    pane.addEventListener('dragend', () => {
+      pane.classList.remove('drag-over');
+    });
+
+    pane.addEventListener('drop', (e) => {
+      e.preventDefault();
+      pane.classList.remove('drag-over');
+      if (e.dataTransfer?.files && e.dataTransfer.files[0]) {
+        this.loadFile(side, e.dataTransfer.files[0]);
+      }
+    });
   }
 }
 
@@ -5775,7 +6094,27 @@ async function renderApp(mountTarget, rawJsonText) {
           new DiffView({
             container: diffContainer,
             primaryData: jsonObject,
-            onToast: showToast
+            onToast: showToast,
+            onApplyToViewer: (updatedData) => {
+              jsonObject = updatedData;
+              currentJsonText = JSON.stringify(jsonObject, null, 2);
+              rawContainer.value = currentJsonText;
+              expandedStateMap.clear();
+              currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+              applyRender();
+
+              const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
+              toolbar.updateMaxDepth(stats.maxDepth);
+              toolbar.updateStatsSummary(`📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`);
+              toolbar.setViewMode('tree');
+
+              viewportContainer.style.display = 'block';
+              rawContainer.style.display = 'none';
+              tableContainer.style.display = 'none';
+              chartContainer.style.display = 'none';
+              diagramContainer.style.display = 'none';
+              diffContainer.style.display = 'none';
+            }
           });
         }
       },

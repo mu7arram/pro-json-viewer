@@ -90,6 +90,45 @@ test.describe('Pro JSON Viewer E2E Browser Test Suite', () => {
     await expect(page.locator('.pjv-diff-tree-view')).toBeVisible({ timeout: 5000 });
   });
 
+  test('exercises enhanced Diff UX workspace: auto-diff, stepper, and apply to viewer', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html#scratchpad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.pjv-root')).toBeVisible({ timeout: 10000 });
+
+    // Open Diff View
+    await page.click('button:has-text("🔀 Diff")');
+    await expect(page.locator('.pjv-diff-workspace')).toBeVisible({ timeout: 5000 });
+
+    // Load sample payloads
+    await page.click('#pjv-diff-btn-sample');
+
+    // Verify stats pills updated
+    const statsPills = page.locator('.pjv-diff-stats-pills');
+    await expect(statsPills).toBeVisible({ timeout: 5000 });
+
+    // Toggle Sync Scroll and Sort Keys
+    await page.click('#pjv-diff-btn-sync-scroll');
+    await expect(page.locator('#pjv-diff-btn-sync-scroll')).toContainText('OFF');
+    await page.click('#pjv-diff-btn-sync-scroll');
+    await expect(page.locator('#pjv-diff-btn-sync-scroll')).toContainText('ON');
+
+    // Switch to Visual Diff Tree
+    await page.click('#pjv-diff-tab-tree');
+    await expect(page.locator('.pjv-diff-tree-view')).toBeVisible();
+
+    // Step through differences with next/prev buttons
+    const stepCounter = page.locator('#pjv-diff-step-counter');
+    await expect(stepCounter).toBeVisible();
+    await page.click('#pjv-diff-next');
+    await page.click('#pjv-diff-prev');
+
+    // Switch back to Editors and Apply Target to Viewer
+    await page.click('#pjv-diff-tab-editors');
+    await page.click('#pjv-diff-apply-right');
+
+    // Verify app transitions back to Tree view with updated target JSON
+    await expect(page.locator('.pjv-viewport')).toBeVisible({ timeout: 5000 });
+  });
+
   test('developer tools modal opens and displays schema inspection', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html#scratchpad`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.pjv-root')).toBeVisible({ timeout: 10000 });
