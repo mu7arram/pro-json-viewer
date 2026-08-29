@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-23  
-**Version**: 2.0.0  
+**Last Updated**: 2026-08-29  
+**Version**: 2.1.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -57,6 +57,19 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 2.1.0 (2026-08-29)
+- Added **Mozilla Firefox MV3 Compatibility & Automated Onboarding**:
+  - Automatically detects Firefox on first run and launches a visual 3-step setup guide with 1-click `about:config` copy.
+  - Added Firefox contextual helper card in popup UI.
+  - Added dual-target release build script generating standalone packages for Chrome and Firefox.
+- Enhanced **100% Content Security Policy (CSP) Compliance**:
+  - Upgraded Donut, Vertical Bar, and Horizontal Bar charts to pure vector SVG presentation attributes immune to `style-src-attr` blocks.
+  - Replaced all inline styles across dialogs, developer tools, schema health auditor, and table views with dedicated CSS classes.
+  - Injected `theme.css` at the extension manifest level to guarantee consistent styling across all strict API endpoints.
+- Improved **Responsive Charts & Analytics**:
+  - Vertical bar charts now dynamically scale to fill 100% of card container width.
+  - Added `objectCount` tracking and defensive null-safety across all analytics properties.
 
 ### Version 2.0.0 (2026-08-23)
 - Added **Enhanced Dual-Editor Diff Workspace UX (#30)**:

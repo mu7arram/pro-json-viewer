@@ -143,7 +143,7 @@ Press `?` or click **⌨️ Shortcuts** in the toolbar at any time to display th
      ```bash
      npm run build:firefox
      ```
-     Go to `about:debugging#/runtime/this-firefox` $\rightarrow$ click **Load Temporary Add-on…** $\rightarrow$ select `dist/manifest.json` (or `pro-json-viewer-firefox-v2.0.0.zip`).  
+     Go to `about:debugging#/runtime/this-firefox` $\rightarrow$ click **Load Temporary Add-on…** $\rightarrow$ select `dist/manifest.json` (or `pro-json-viewer-firefox-v2.1.0.zip`).  
      *(Note: In Firefox, set `devtools.jsonview.enabled` to `false` in `about:config` to let extensions format raw JSON tabs).*
 
 ---

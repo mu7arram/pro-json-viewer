@@ -373,8 +373,8 @@ export class DiffView {
     };
 
     const sampleModified = {
-      name: "Enterprise Pro Service (v2)",
-      version: "2.0.0",
+      name: "Enterprise Pro Service (v2.1)",
+      version: "2.1.0",
       config: {
         timeoutMs: 8000,
         retries: 3,
