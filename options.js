@@ -193,6 +193,32 @@
       saveBtn.textContent = 'Save Settings';
       flashSaveToast('✓ Settings Saved Successfully!');
     };
+
+    // Firefox Guide Logic
+    const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.includes('Firefox');
+    const isWelcome = window.location.hash === '#welcome';
+    const firefoxGuide = document.getElementById('firefox-guide');
+    const copySettingBtn = document.getElementById('copy-setting-btn');
+    const copySettingToast = document.getElementById('copy-setting-toast');
+
+    if (firefoxGuide && (isFirefox || isWelcome)) {
+      firefoxGuide.style.display = 'block';
+      if (isWelcome) {
+        firefoxGuide.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    if (copySettingBtn) {
+      copySettingBtn.onclick = async () => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText('devtools.jsonview.enabled');
+        }
+        if (copySettingToast) {
+          copySettingToast.style.display = 'inline';
+          setTimeout(() => (copySettingToast.style.display = 'none'), 2500);
+        }
+      };
+    }
   }
 
   document.addEventListener('DOMContentLoaded', initOptionsPage);

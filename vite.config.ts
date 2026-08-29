@@ -16,8 +16,19 @@ function copyExtensionAssets() {
         fs.mkdirSync(distDir, { recursive: true });
       }
 
-      // Copy manifest
-      fs.copyFileSync(resolve(__dirname, 'manifest.json'), resolve(distDir, 'manifest.json'));
+      // Copy target manifest
+      const targetBrowser = process.env.TARGET_BROWSER || 'chrome';
+      const manifestSource = targetBrowser === 'firefox' ? 'manifest.firefox.json' : 'manifest.json';
+      fs.copyFileSync(resolve(__dirname, manifestSource), resolve(distDir, 'manifest.json'));
+
+      // Copy standalone scripts & styles
+      fs.copyFileSync(resolve(__dirname, 'content.js'), resolve(distDir, 'content.js'));
+      fs.copyFileSync(resolve(__dirname, 'service-worker.js'), resolve(distDir, 'service-worker.js'));
+      fs.copyFileSync(resolve(__dirname, 'theme.css'), resolve(distDir, 'theme.css'));
+      fs.copyFileSync(resolve(__dirname, 'popup.html'), resolve(distDir, 'popup.html'));
+      fs.copyFileSync(resolve(__dirname, 'popup.js'), resolve(distDir, 'popup.js'));
+      fs.copyFileSync(resolve(__dirname, 'options.html'), resolve(distDir, 'options.html'));
+      fs.copyFileSync(resolve(__dirname, 'options.js'), resolve(distDir, 'options.js'));
 
       // Copy icons
       if (fs.existsSync(publicIcons)) {
@@ -34,6 +45,7 @@ function copyExtensionAssets() {
 }
 
 export default defineConfig({
+  base: './',
   test: {
     globals: true,
     environment: 'jsdom',
@@ -46,20 +58,10 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'src/popup/popup.html'),
-        options: resolve(__dirname, 'src/options/options.html'),
-        background: resolve(__dirname, 'src/background/service-worker.ts'),
-        content: resolve(__dirname, 'src/content/content.ts')
+        options: resolve(__dirname, 'src/options/options.html')
       },
       output: {
-        entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === 'background') {
-            return 'service-worker.js';
-          }
-          if (chunkInfo.name === 'content') {
-            return 'content.js';
-          }
-          return 'assets/[name]-[hash].js';
-        },
+        entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }

@@ -217,17 +217,17 @@ export class DiagramView {
     const controls = document.createElement('div');
     controls.className = 'pjv-diagram-controls';
     controls.innerHTML = `
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-weight:700; font-size:12px; color:var(--pjv-syntax-key);">🗺️ Diagram</span>
+      <div class="pjv-diag-controls-left">
+        <span class="pjv-diag-title">🗺️ Diagram</span>
         <div class="pjv-btn-group">
-          <button id="pjv-diag-zoom-in" class="pjv-btn" title="Zoom In" style="font-weight:800; font-size:14px; line-height:1; min-width:28px;">+</button>
-          <button id="pjv-diag-zoom-out" class="pjv-btn" title="Zoom Out" style="font-weight:800; font-size:14px; line-height:1; min-width:28px;">&minus;</button>
+          <button id="pjv-diag-zoom-in" class="pjv-btn pjv-diag-zoom-btn" title="Zoom In">+</button>
+          <button id="pjv-diag-zoom-out" class="pjv-btn pjv-diag-zoom-btn" title="Zoom Out">&minus;</button>
           <button id="pjv-diag-zoom-reset" class="pjv-btn" title="Reset Zoom">100%</button>
           <button id="pjv-diag-fit" class="pjv-btn" title="Fit to Screen">⊡ Fit</button>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div class="pjv-diag-controls-right">
         <div class="pjv-btn-group">
           <button id="pjv-diag-orient-h" class="pjv-btn ${this.orientation === 'horizontal' ? 'active' : ''}">Mindmap ⬌</button>
           <button id="pjv-diag-orient-v" class="pjv-btn ${this.orientation === 'vertical' ? 'active' : ''}">Tree ⬍</button>
@@ -239,11 +239,7 @@ export class DiagramView {
           <button id="pjv-diag-collapse" class="pjv-btn">Collapse</button>
         </div>
 
-        <input type="text" id="pjv-diag-search" placeholder="Search node..." style="
-          background: var(--pjv-bg-main); color: var(--pjv-text-main);
-          border: 1px solid var(--pjv-border-color); border-radius: 4px;
-          padding: 4px 8px; font-size: 11px; outline: none; width: 120px;
-        " />
+        <input type="text" id="pjv-diag-search" class="pjv-diag-search-input" placeholder="Search node..." />
 
         <div class="pjv-btn-group">
           <button id="pjv-diag-exp-png" class="pjv-btn" title="Export Diagram as PNG">📷 PNG</button>

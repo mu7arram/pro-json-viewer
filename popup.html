@@ -59,6 +59,43 @@
     button.btn-primary:hover {
       background: #0369a1;
     }
+    .firefox-tip {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 6px;
+      padding: 9px;
+      margin-bottom: 10px;
+      font-size: 11.5px;
+      line-height: 1.4;
+      color: #fbbf24;
+    }
+    .firefox-tip-title {
+      font-weight: 700;
+      margin-bottom: 3px;
+      color: #fef08a;
+    }
+    .firefox-tip-desc code {
+      background: rgba(0,0,0,0.3);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 10.5px;
+      color: #fef08a;
+    }
+    .btn-guide {
+      width: 100%;
+      margin-top: 6px;
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fef08a;
+      font-weight: 600;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .btn-guide:hover {
+      background: rgba(245, 158, 11, 0.35);
+    }
     .footer {
       font-size: 10px;
       color: #94a3b8;
@@ -73,6 +110,12 @@
       <path d="M8 3H6a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h2m8-18h2a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-2" />
     </svg>
     Pro JSON Viewer
+  </div>
+
+  <div id="firefox-tip" class="firefox-tip" style="display: none;">
+    <div class="firefox-tip-title">🦊 Firefox Tip (10s Setup)</div>
+    <div class="firefox-tip-desc">To auto-format JSON tabs, set <code>devtools.jsonview.enabled</code> to <code>false</code> in <code>about:config</code>.</div>
+    <button id="open-firefox-guide" class="btn-guide">View 10s Setup Guide</button>
   </div>
 
   <div class="card">

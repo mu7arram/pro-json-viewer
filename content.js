@@ -770,7 +770,7 @@ class Toolbar {
       <!-- Global Topbar (Always Persistent) -->
       <div class="pjv-toolbar-global">
         <div class="pjv-brand">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="pjv-logo-icon">
             <path d="M8 3H6a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h2m8-18h2a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-2" />
           </svg>
           Pro JSON
@@ -1205,9 +1205,9 @@ class TableView {
     this.container.innerHTML = '';
     if (this.datasets.length === 0) {
       this.container.innerHTML = `
-        <div style="padding: 40px; text-align: center; color: var(--pjv-text-muted);">
-          <h3 style="margin-top:0; color:var(--pjv-syntax-key);">📊 Table View Unavailable</h3>
-          <p style="font-size: 13px; max-width: 420px; margin: 0 auto; line-height: 1.5;">
+        <div class="pjv-empty-state">
+          <h3>📊 Table View Unavailable</h3>
+          <p>
             No structured datasets or array of objects were detected in this JSON payload.
           </p>
         </div>
@@ -1534,7 +1534,7 @@ class TableView {
     }
 
     if ((colLower === 'questions' || colLower === 'skill_levels') && Array.isArray(parsedVal)) {
-      return `<span class="pjv-table-cell-json" style="background: var(--pjv-badge-local-bg); color: var(--pjv-badge-local-text); border: 1px solid var(--pjv-badge-local-border); font-weight:600;">❓ ${parsedVal.length} ${colKey}</span>`;
+      return `<span class="pjv-table-cell-json pjv-table-cell-badge">❓ ${parsedVal.length} ${colKey}</span>`;
     }
 
     if (typeof val === 'string') {
@@ -1547,7 +1547,7 @@ class TableView {
     if (colLower === 'expected' && typeof parsedVal === 'object' && parsedVal !== null) {
       if (parsedVal.correct) {
         const correctVal = Array.isArray(parsedVal.correct) ? parsedVal.correct.join(', ') : parsedVal.correct;
-        return `<span class="pjv-pill pjv-type-single" style="font-family:var(--pjv-font-mono);">Key: ${correctVal}</span>`;
+        return `<span class="pjv-pill pjv-type-single pjv-mono">Key: ${correctVal}</span>`;
       }
     }
 
@@ -1561,10 +1561,11 @@ class TableView {
       const pct = Math.min(100, Math.max(0, val));
       return `
         <div class="pjv-progress-container">
-          <div class="pjv-progress-track">
-            <div class="pjv-progress-fill" style="width: ${pct}%"></div>
-          </div>
-          <span style="font-weight:600; font-size:11px;">${val}%</span>
+          <svg width="64" height="8" viewBox="0 0 100 8" class="pjv-progress-svg">
+            <rect x="0" y="0" width="100" height="8" rx="4" fill="var(--pjv-border-color)" opacity="0.35" />
+            <rect x="0" y="0" width="${pct}" height="8" rx="4" fill="var(--pjv-syntax-key)" />
+          </svg>
+          <span class="pjv-progress-label">${val}%</span>
         </div>
       `;
     }
@@ -1852,10 +1853,11 @@ class ChartView {
 
   buildMagneticSlider() {
     const depthContainer = document.createElement('div');
-    depthContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--pjv-text-muted);';
+    depthContainer.className = 'pjv-depth-container';
 
     const depthLabel = document.createElement('span');
-    depthLabel.innerHTML = `Depth: <strong style="color:var(--pjv-syntax-key);">${this.scanDepth}</strong>`;
+    depthLabel.className = 'pjv-depth-label';
+    depthLabel.innerHTML = `Depth: <strong class="pjv-depth-val">${this.scanDepth}</strong>`;
     depthContainer.appendChild(depthLabel);
 
     const dotSliderWrapper = document.createElement('div');
@@ -1967,10 +1969,10 @@ class ChartView {
     // Empty state handling
     if (this.datasets.length === 0) {
       const emptyState = document.createElement('div');
-      emptyState.style.cssText = 'padding: 40px; text-align: center; color: var(--pjv-text-muted);';
+      emptyState.className = 'pjv-empty-state';
       emptyState.innerHTML = `
-        <h3 style="margin-top:0; color:var(--pjv-syntax-key);">📈 Chart View Unavailable</h3>
-        <p style="font-size: 13px; max-width: 460px; margin: 0 auto; line-height: 1.5;">
+        <h3>📈 Chart View Unavailable</h3>
+        <p>
           No numeric metrics, categorical breakdowns, or chartable series were detected in this JSON payload at <strong>Scan Depth ${this.scanDepth}</strong>.
           <br><br>
           👉 Use the <strong>Scan Depth slider</strong> above to scan deeper (e.g. Depth 5 to 20).
@@ -2007,9 +2009,9 @@ class ChartView {
 
       // Label Selector
       const labelGroup = document.createElement('div');
-      labelGroup.innerHTML = `<span style="color:var(--pjv-text-muted); font-weight:500; margin-right:4px;">Label:</span>`;
+      labelGroup.innerHTML = `<span class="pjv-control-label">Label:</span>`;
       const labelSelect = document.createElement('select');
-      labelSelect.style.cssText = 'background: var(--pjv-bg-main); color: var(--pjv-text-main); border: 1px solid var(--pjv-border-color); border-radius: 4px; padding: 4px 8px; font-size: 11px; outline: none; cursor: pointer;';
+      labelSelect.className = 'pjv-select';
       (activeDataset.stringKeys || []).forEach((k) => {
         const opt = document.createElement('option');
         opt.value = k;
@@ -2026,9 +2028,9 @@ class ChartView {
       // Value Selector (only if Raw Values mode)
       if (this.aggregationMode === 'raw') {
         const valueGroup = document.createElement('div');
-        valueGroup.innerHTML = `<span style="color:var(--pjv-text-muted); font-weight:500; margin-right:4px;">Value:</span>`;
+        valueGroup.innerHTML = `<span class="pjv-control-label">Value:</span>`;
         const valueSelect = document.createElement('select');
-        valueSelect.style.cssText = 'background: var(--pjv-bg-main); color: var(--pjv-text-main); border: 1px solid var(--pjv-border-color); border-radius: 4px; padding: 4px 8px; font-size: 11px; outline: none; cursor: pointer;';
+        valueSelect.className = 'pjv-select';
         (activeDataset.numericKeys || activeDataset.stringKeys || []).forEach((k) => {
           if (!isIdField(k)) {
             const opt = document.createElement('option');
@@ -2048,9 +2050,9 @@ class ChartView {
 
       // Top-N Selector
       const topNGroup = document.createElement('div');
-      topNGroup.innerHTML = `<span style="color:var(--pjv-text-muted); font-weight:500; margin-right:4px;">Show:</span>`;
+      topNGroup.innerHTML = `<span class="pjv-control-label">Show:</span>`;
       const topNSelect = document.createElement('select');
-      topNSelect.style.cssText = 'background: var(--pjv-bg-main); color: var(--pjv-text-main); border: 1px solid var(--pjv-border-color); border-radius: 4px; padding: 4px 8px; font-size: 11px; outline: none; cursor: pointer;';
+      topNSelect.className = 'pjv-select';
       [0, 5, 10, 20].forEach((n) => {
         const opt = document.createElement('option');
         opt.value = String(n);
@@ -2317,7 +2319,7 @@ class ChartView {
 
   renderSvgDonut(slices) {
     const total = slices.reduce((sum, s) => sum + s.value, 0);
-    if (total === 0) return '<div style="color:var(--pjv-text-muted); padding:20px;">No non-zero data for donut chart</div>';
+    if (total === 0) return '<div class="pjv-empty-state"><p>No non-zero data for donut chart</p></div>';
 
     const radius = 60;
     const strokeWidth = 24;
@@ -2326,8 +2328,8 @@ class ChartView {
 
     const svgPaths = slices.map((slice, i) => {
       const pct = slice.value / total;
-      const dashArray = `${pct * circumference} ${circumference}`;
-      const dashOffset = -accumulatedAngle * circumference;
+      const dashArray = `${(pct * circumference).toFixed(2)} ${circumference.toFixed(2)}`;
+      const dashOffset = (-accumulatedAngle * circumference).toFixed(2);
       accumulatedAngle += pct;
       const color = CHART_PALETTE[i % CHART_PALETTE.length];
 
@@ -2339,7 +2341,7 @@ class ChartView {
           stroke-width="${strokeWidth}"
           stroke-dasharray="${dashArray}"
           stroke-dashoffset="${dashOffset}"
-          style="transition: stroke-width 0.2s ease, opacity 0.2s ease; cursor: pointer;"
+          class="pjv-donut-slice"
         >
           <title>${this.escapeHtml(slice.label)}: ${formatNumericValue(slice.value)} (${(pct * 100).toFixed(1)}%)</title>
         </circle>
@@ -2349,10 +2351,12 @@ class ChartView {
     const formattedTotal = formatNumericValue(total);
 
     return `
-      <svg width="160" height="160" viewBox="0 0 160 160" style="transform: rotate(-90deg); flex-shrink: 0;">
-        ${svgPaths}
+      <svg width="160" height="160" viewBox="0 0 160 160" class="pjv-donut-svg">
+        <g transform="rotate(-90 80 80)">
+          ${svgPaths}
+        </g>
         <text x="80" y="85" text-anchor="middle" dominant-baseline="middle"
-              style="transform: rotate(90deg); transform-origin: center; font-weight:700; font-size:16px; fill:var(--pjv-text-main);">
+              class="pjv-donut-center-text">
           ${formattedTotal}
         </text>
       </svg>
@@ -2367,7 +2371,9 @@ class ChartView {
       return `
         <div class="pjv-legend-item">
           <div class="pjv-legend-left">
-            <div class="pjv-legend-dot" style="background:${color};"></div>
+            <svg width="10" height="10" viewBox="0 0 10 10" class="pjv-legend-dot-svg">
+              <circle cx="5" cy="5" r="5" fill="${color}" />
+            </svg>
             <span>${this.escapeHtml(slice.label)}</span>
           </div>
           <div class="pjv-legend-val">${formatNumericValue(slice.value)} (${pct}%)</div>
@@ -2382,46 +2388,90 @@ class ChartView {
     const maxVal = Math.max(...items.map((i) => i.value), 1);
 
     if (isVertical) {
-      const barCols = items.map((item, i) => {
+      const baseW = 680;
+      const gap = 16;
+      const count = Math.max(1, items.length);
+      const barW = Math.min(54, Math.max(32, Math.floor((baseW - 60) / count) - gap));
+      const totalBarsW = count * barW + (count - 1) * gap;
+      const totalW = Math.max(baseW, totalBarsW + 60);
+      const startX = Math.max(30, (totalW - totalBarsW) / 2);
+      const chartH = 160;
+      const totalH = chartH + 60;
+
+      const barsSvg = items.map((item, i) => {
         const color = CHART_PALETTE[i % CHART_PALETTE.length];
-        const pct = Math.min(100, Math.max(4, (item.value / maxVal) * 100));
-        const isRtl = /[\u0600-\u06FF]/.test(item.label);
+        const barH = Math.max(4, (item.value / maxVal) * chartH);
+        const x = startX + i * (barW + gap);
+        const y = chartH - barH + 20;
+        const formattedVal = formatNumericValue(item.value);
+        const label = this.escapeHtml(item.label);
+        const shortLabel = label.length > 10 ? label.substring(0, 9) + '…' : label;
 
         return `
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; min-width: 45px;">
-            <span style="font-size: 11px; font-weight: 700; font-family: var(--pjv-font-mono); color: ${color};">${formatNumericValue(item.value)}</span>
-            <div style="width: 100%; height: 140px; background: var(--pjv-border-color); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden;">
-              <div style="width: 100%; height: ${pct}%; background: ${color}; border-radius: 6px 6px 0 0; transition: height 0.4s ease;"></div>
-            </div>
-            <span ${isRtl ? 'dir="rtl"' : ''} style="font-size: 10px; color: var(--pjv-text-muted); text-align: center; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 80px;" title="${this.escapeHtml(item.label)}">
-              ${this.escapeHtml(item.label)}
-            </span>
-          </div>
+          <g class="pjv-svg-bar-group">
+            <rect x="${x}" y="20" width="${barW}" height="${chartH}" rx="5" fill="var(--pjv-border-color)" opacity="0.35" />
+            <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" fill="${color}">
+              <title>${label}: ${formattedVal}</title>
+            </rect>
+            <text x="${x + barW / 2}" y="${Math.max(14, y - 6)}" text-anchor="middle" font-size="11" font-weight="700" font-family="var(--pjv-font-mono)" fill="${color}">
+              ${formattedVal}
+            </text>
+            <text x="${x + barW / 2}" y="${chartH + 38}" text-anchor="middle" font-size="11" fill="var(--pjv-text-muted)">
+              ${shortLabel}
+              <title>${label}</title>
+            </text>
+          </g>
         `;
       }).join('');
 
-      return `<div style="display: flex; align-items: flex-end; gap: 12px; padding: 10px 0; overflow-x: auto;">${barCols}</div>`;
+      return `
+        <div class="pjv-chart-svg-container">
+          <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+            ${barsSvg}
+          </svg>
+        </div>
+      `;
     }
 
-    const barRows = items.map((item, i) => {
+    // Horizontal Bar Chart
+    const rowH = 38;
+    const barTrackH = 14;
+    const totalW = 680;
+    const totalH = items.length * rowH + 10;
+    const maxBarW = totalW - 20;
+
+    const rowsSvg = items.map((item, i) => {
       const color = CHART_PALETTE[i % CHART_PALETTE.length];
-      const pct = Math.min(100, Math.max(0, (item.value / maxVal) * 100));
-      const isRtl = /[\u0600-\u06FF]/.test(item.label);
+      const barW = Math.max(6, (item.value / maxVal) * maxBarW);
+      const y = i * rowH + 8;
+      const formattedVal = formatNumericValue(item.value);
+      const label = this.escapeHtml(item.label);
+      const shortLabel = label.length > 36 ? label.substring(0, 34) + '…' : label;
 
       return `
-        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
-          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--pjv-text-main);">
-            <span ${isRtl ? 'dir="rtl"' : ''} style="font-weight: 500;">${this.escapeHtml(item.label)}</span>
-            <span style="font-weight: 700; font-family: var(--pjv-font-mono); color: ${color};">${formatNumericValue(item.value)}</span>
-          </div>
-          <div style="height: 10px; background: var(--pjv-border-color); border-radius: 5px; overflow: hidden; position: relative;">
-            <div style="height: 100%; width: ${pct}%; background: ${color}; border-radius: 5px; transition: width 0.4s ease;"></div>
-          </div>
-        </div>
+        <g class="pjv-svg-hbar-group">
+          <text x="0" y="${y + 12}" font-size="11.5" font-weight="600" fill="var(--pjv-text-main)">
+            ${shortLabel}
+            <title>${label}</title>
+          </text>
+          <text x="${totalW}" y="${y + 12}" text-anchor="end" font-size="11.5" font-weight="700" font-family="var(--pjv-font-mono)" fill="${color}">
+            ${formattedVal}
+          </text>
+          <rect x="0" y="${y + 18}" width="${totalW}" height="${barTrackH}" rx="7" fill="var(--pjv-border-color)" opacity="0.35" />
+          <rect x="0" y="${y + 18}" width="${barW}" height="${barTrackH}" rx="7" fill="${color}">
+            <title>${label}: ${formattedVal}</title>
+          </rect>
+        </g>
       `;
     }).join('');
 
-    return `<div>${barRows}</div>`;
+    return `
+      <div class="pjv-chart-svg-container">
+        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+          ${rowsSvg}
+        </svg>
+      </div>
+    `;
   }
 
   escapeHtml(str) {
@@ -2932,17 +2982,17 @@ class DiagramView {
     const controls = document.createElement('div');
     controls.className = 'pjv-diagram-controls';
     controls.innerHTML = `
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-weight:700; font-size:12px; color:var(--pjv-syntax-key);">🗺️ Diagram</span>
+      <div class="pjv-diag-controls-left">
+        <span class="pjv-diag-title">🗺️ Diagram</span>
         <div class="pjv-btn-group">
-          <button id="pjv-diag-zoom-in" class="pjv-btn" title="Zoom In" style="font-weight:800; font-size:14px; line-height:1; min-width:28px;">+</button>
-          <button id="pjv-diag-zoom-out" class="pjv-btn" title="Zoom Out" style="font-weight:800; font-size:14px; line-height:1; min-width:28px;">&minus;</button>
+          <button id="pjv-diag-zoom-in" class="pjv-btn pjv-diag-zoom-btn" title="Zoom In">+</button>
+          <button id="pjv-diag-zoom-out" class="pjv-btn pjv-diag-zoom-btn" title="Zoom Out">&minus;</button>
           <button id="pjv-diag-zoom-reset" class="pjv-btn" title="Reset Zoom">100%</button>
           <button id="pjv-diag-fit" class="pjv-btn" title="Fit to Screen">⊡ Fit</button>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div class="pjv-diag-controls-right">
         <div class="pjv-btn-group">
           <button id="pjv-diag-orient-h" class="pjv-btn ${this.orientation === 'horizontal' ? 'active' : ''}">Mindmap ⬌</button>
           <button id="pjv-diag-orient-v" class="pjv-btn ${this.orientation === 'vertical' ? 'active' : ''}">Tree ⬍</button>
@@ -2954,11 +3004,7 @@ class DiagramView {
           <button id="pjv-diag-collapse" class="pjv-btn">Collapse</button>
         </div>
 
-        <input type="text" id="pjv-diag-search" placeholder="Search node..." style="
-          background: var(--pjv-bg-main); color: var(--pjv-text-main);
-          border: 1px solid var(--pjv-border-color); border-radius: 4px;
-          padding: 4px 8px; font-size: 11px; outline: none; width: 120px;
-        " />
+        <input type="text" id="pjv-diag-search" class="pjv-diag-search-input" placeholder="Search node..." />
 
         <div class="pjv-btn-group">
           <button id="pjv-diag-exp-png" class="pjv-btn" title="Export Diagram as PNG">📷 PNG</button>
@@ -3897,7 +3943,7 @@ class DiffView {
             </span>
             <button id="pjv-diff-paste-left" class="pjv-btn pjv-btn-xs" title="Paste from clipboard">📥 Paste</button>
             <button id="pjv-diff-load-left" class="pjv-btn pjv-btn-xs" title="Load JSON from local file">📁 Load</button>
-            <input type="file" id="pjv-diff-file-left" accept=".json,application/json,text/plain" style="display:none;" />
+            <input type="file" id="pjv-diff-file-left" accept=".json,application/json,text/plain" class="pjv-hidden-file-input" />
             <button id="pjv-diff-copy-left" class="pjv-btn pjv-btn-xs" title="Copy left JSON">📋 Copy</button>
             <button id="pjv-diff-clear-left" class="pjv-btn pjv-btn-xs" title="Clear left editor">🧹 Clear</button>
           </div>
@@ -3922,7 +3968,7 @@ class DiffView {
             </span>
             <button id="pjv-diff-paste-right" class="pjv-btn pjv-btn-xs" title="Paste from clipboard">📥 Paste</button>
             <button id="pjv-diff-load-right" class="pjv-btn pjv-btn-xs" title="Load JSON from local file">📁 Load</button>
-            <input type="file" id="pjv-diff-file-right" accept=".json,application/json,text/plain" style="display:none;" />
+            <input type="file" id="pjv-diff-file-right" accept=".json,application/json,text/plain" class="pjv-hidden-file-input" />
             <button id="pjv-diff-copy-right" class="pjv-btn pjv-btn-xs" title="Copy right JSON">📋 Copy</button>
             <button id="pjv-diff-apply-right" class="pjv-btn pjv-btn-xs pjv-btn-primary" title="Apply Target JSON to Main Viewer">📥 Apply to Viewer</button>
             <button id="pjv-diff-clear-right" class="pjv-btn pjv-btn-xs" title="Clear right editor">🧹 Clear</button>
@@ -4074,9 +4120,9 @@ class DiffView {
       if (!this.diffResult || this.diffResult.diffNodes.length === 0) {
         treeContent.innerHTML = `
           <div class="pjv-diff-empty">
-            <div style="font-size: 32px; margin-bottom: 8px;">🔀</div>
+            <div class="pjv-diff-empty-icon">🔀</div>
             <strong>No diff computed yet</strong>
-            <p style="font-size: 12px; color: var(--pjv-text-muted); margin-top: 4px;">
+            <p class="pjv-diff-empty-desc">
               Switch to Side-by-Side Editors, paste both documents, and click <strong>Compare Diff</strong>.
             </p>
           </div>
@@ -4226,6 +4272,7 @@ function analyzePayloadStats(rawText, data, parseTimeMs = 0) {
   const byteSize = new Blob([rawText || JSON.stringify(data)]).size;
   let totalKeys = 0;
   let arrayCount = 0;
+  let objectCount = 0;
   let maxDepth = 0;
 
   function traverse(obj, depth = 1) {
@@ -4236,6 +4283,7 @@ function analyzePayloadStats(rawText, data, parseTimeMs = 0) {
       arrayCount++;
       obj.forEach((item) => traverse(item, depth + 1));
     } else {
+      objectCount++;
       const keys = Object.keys(obj);
       totalKeys += keys.length;
       keys.forEach((k) => traverse(obj[k], depth + 1));
@@ -4247,9 +4295,10 @@ function analyzePayloadStats(rawText, data, parseTimeMs = 0) {
   return {
     byteSize,
     formattedSize: formatByteSize(byteSize),
-    totalKeys,
-    arrayCount,
-    maxDepth,
+    totalKeys: totalKeys || 0,
+    arrayCount: arrayCount || 0,
+    objectCount: objectCount || 0,
+    maxDepth: maxDepth || 0,
     parseTimeMs: Math.round(parseTimeMs * 100) / 100
   };
 }
@@ -4855,11 +4904,11 @@ function openToolsModal(options) {
   const renderContent = () => {
     modal.innerHTML = `
       <div class="pjv-tools-header">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:18px;">🛠️</span>
-          <h3 style="margin:0; font-size:15px; color:var(--pjv-syntax-key);">Developer Tools Suite</h3>
+        <div class="pjv-tools-title-wrap">
+          <span class="pjv-tools-icon">🛠️</span>
+          <h3 class="pjv-tools-title">Developer Tools Suite</h3>
         </div>
-        <button id="pjv-tools-close" class="pjv-btn" style="padding:4px 8px;">✕</button>
+        <button id="pjv-tools-close" class="pjv-btn">✕</button>
       </div>
 
       <div class="pjv-tools-nav">
@@ -4892,7 +4941,7 @@ function openToolsModal(options) {
         <div class="pjv-tools-panel">
           <div class="pjv-tools-toolbar">
             <span class="pjv-tools-hint">Auto-generated TypeScript interfaces with inferred types:</span>
-            <div style="display:flex; gap:8px;">
+            <div class="pjv-tools-btn-group">
               <button id="pjv-btn-copy-ts" class="pjv-btn active">📋 Copy TypeScript</button>
               <button id="pjv-btn-dl-ts" class="pjv-btn">📥 Download .d.ts</button>
             </div>
@@ -4917,7 +4966,7 @@ function openToolsModal(options) {
         <div class="pjv-tools-panel">
           <div class="pjv-tools-toolbar">
             <span class="pjv-tools-hint">Auto-generated Zod validation schema code:</span>
-            <div style="display:flex; gap:8px;">
+            <div class="pjv-tools-btn-group">
               <button id="pjv-btn-copy-zod" class="pjv-btn active">📋 Copy Zod Schema</button>
               <button id="pjv-btn-dl-zod" class="pjv-btn">📥 Download .ts</button>
             </div>
@@ -4942,7 +4991,7 @@ function openToolsModal(options) {
         <div class="pjv-tools-panel">
           <div class="pjv-tools-toolbar">
             <span class="pjv-tools-hint">Clean formatted YAML conversion:</span>
-            <div style="display:flex; gap:8px;">
+            <div class="pjv-tools-btn-group">
               <button id="pjv-btn-copy-yaml" class="pjv-btn active">📋 Copy YAML</button>
               <button id="pjv-btn-dl-yaml" class="pjv-btn">📥 Download .yaml</button>
             </div>
@@ -4974,118 +5023,134 @@ function openToolsModal(options) {
             <div class="pjv-export-card">
               <div class="pjv-export-info">
                 <h4>📄 Formatted JSON</h4>
-                <p>Human-readable indented JSON payload</p>
+                <p>Beautified with 2-space indentation</p>
               </div>
-              <div class="pjv-btn-group">
-                <button id="pjv-copy-fmt-json" class="pjv-btn">📋 Copy</button>
-                <button id="pjv-dl-fmt-json" class="pjv-btn active">📥 Download</button>
+              <div class="pjv-export-actions">
+                <button id="pjv-btn-copy-json" class="pjv-btn active">📋 Copy</button>
+                <button id="pjv-btn-dl-json" class="pjv-btn">📥 Save .json</button>
               </div>
             </div>
 
             <div class="pjv-export-card">
               <div class="pjv-export-info">
-                <h4>⚡ Minified JSON</h4>
-                <p>Compact, single-line payload with zero whitespace</p>
+                <h4>🗜️ Minified JSON</h4>
+                <p>Single line, zero whitespace</p>
               </div>
-              <div class="pjv-btn-group">
-                <button id="pjv-copy-min-json" class="pjv-btn">📋 Copy</button>
-                <button id="pjv-dl-min-json" class="pjv-btn active">📥 Download</button>
+              <div class="pjv-export-actions">
+                <button id="pjv-btn-copy-min" class="pjv-btn active">📋 Copy</button>
+                <button id="pjv-btn-dl-min" class="pjv-btn">📥 Save .json</button>
               </div>
             </div>
 
             <div class="pjv-export-card">
               <div class="pjv-export-info">
                 <h4>📗 YAML Document</h4>
-                <p>Clean YAML representation of document structure</p>
+                <p>Structured YAML representation</p>
               </div>
-              <div class="pjv-btn-group">
-                <button id="pjv-copy-yaml-exp" class="pjv-btn">📋 Copy</button>
-                <button id="pjv-dl-yaml-exp" class="pjv-btn active">📥 Download</button>
+              <div class="pjv-export-actions">
+                <button id="pjv-btn-copy-exp-yaml" class="pjv-btn active">📋 Copy</button>
+                <button id="pjv-btn-dl-exp-yaml" class="pjv-btn">📥 Save .yaml</button>
               </div>
             </div>
 
             <div class="pjv-export-card">
               <div class="pjv-export-info">
-                <h4>📊 RFC 4180 CSV</h4>
-                <p>Spreadsheet export of primary array collections</p>
+                <h4>📊 CSV Spreadsheet</h4>
+                <p>${csvStr ? 'Tabular comma-separated values' : 'Available for arrays of objects'}</p>
               </div>
-              <div class="pjv-btn-group">
-                <button id="pjv-copy-csv-exp" class="pjv-btn">📋 Copy</button>
-                <button id="pjv-dl-csv-exp" class="pjv-btn active">📥 Download</button>
+              <div class="pjv-export-actions">
+                <button id="pjv-btn-copy-csv" class="pjv-btn active" ${!csvStr ? 'disabled' : ''}>📋 Copy</button>
+                <button id="pjv-btn-dl-csv" class="pjv-btn" ${!csvStr ? 'disabled' : ''}>📥 Save .csv</button>
               </div>
             </div>
           </div>
         </div>
       `;
 
-      bodyEl.querySelector('#pjv-dl-fmt-json').onclick = () => {
-        downloadFile(`payload-formatted-${Date.now()}.json`, prettyJson, 'application/json');
-        if (onToast) onToast('Downloaded formatted JSON!');
-      };
-      bodyEl.querySelector('#pjv-copy-fmt-json').onclick = () => {
+      bodyEl.querySelector('#pjv-btn-copy-json').onclick = () => {
         copyToClipboard(prettyJson);
-        if (onToast) onToast('Copied JSON!');
+        if (onToast) onToast('Copied formatted JSON!');
+      };
+      bodyEl.querySelector('#pjv-btn-dl-json').onclick = () => {
+        downloadFile(`payload-${Date.now()}.json`, prettyJson, 'application/json');
+        if (onToast) onToast('Downloaded JSON file!');
       };
 
-      bodyEl.querySelector('#pjv-dl-min-json').onclick = () => {
-        downloadFile(`payload-minified-${Date.now()}.json`, minJson, 'application/json');
-        if (onToast) onToast('Downloaded minified JSON!');
-      };
-      bodyEl.querySelector('#pjv-copy-min-json').onclick = () => {
+      bodyEl.querySelector('#pjv-btn-copy-min').onclick = () => {
         copyToClipboard(minJson);
         if (onToast) onToast('Copied minified JSON!');
       };
-
-      bodyEl.querySelector('#pjv-dl-yaml-exp').onclick = () => {
-        downloadFile(`payload-${Date.now()}.yaml`, yamlStr, 'text/yaml');
-        if (onToast) onToast('Downloaded YAML file!');
+      bodyEl.querySelector('#pjv-btn-dl-min').onclick = () => {
+        downloadFile(`payload-min-${Date.now()}.json`, minJson, 'application/json');
+        if (onToast) onToast('Downloaded minified JSON file!');
       };
-      bodyEl.querySelector('#pjv-copy-yaml-exp').onclick = () => {
+
+      bodyEl.querySelector('#pjv-btn-copy-exp-yaml').onclick = () => {
         copyToClipboard(yamlStr);
         if (onToast) onToast('Copied YAML!');
       };
+      bodyEl.querySelector('#pjv-btn-dl-exp-yaml').onclick = () => {
+        downloadFile(`payload-${Date.now()}.yaml`, yamlStr, 'text/yaml');
+        if (onToast) onToast('Downloaded YAML file!');
+      };
 
-      bodyEl.querySelector('#pjv-dl-csv-exp').onclick = () => {
-        downloadFile(`payload-${Date.now()}.csv`, csvStr, 'text/csv');
-        if (onToast) onToast('Downloaded CSV spreadsheet!');
-      };
-      bodyEl.querySelector('#pjv-copy-csv-exp').onclick = () => {
-        copyToClipboard(csvStr);
-        if (onToast) onToast('Copied CSV to clipboard!');
-      };
+      if (csvStr) {
+        bodyEl.querySelector('#pjv-btn-copy-csv').onclick = () => {
+          copyToClipboard(csvStr);
+          if (onToast) onToast('Copied CSV to clipboard!');
+        };
+        bodyEl.querySelector('#pjv-btn-dl-csv').onclick = () => {
+          downloadFile(`export-${Date.now()}.csv`, csvStr, 'text/csv');
+          if (onToast) onToast('Downloaded CSV file!');
+        };
+      }
 
     } else if (activeTab === 'analytics') {
+      const formattedSize = stats.formattedSize || formatByteSize(stats.byteSize || 0);
+      const totalKeysStr = (stats.totalKeys || 0).toLocaleString();
+      const arrayCountStr = (stats.arrayCount || 0).toLocaleString();
+      const objectCountStr = (stats.objectCount || 0).toLocaleString();
+      const maxDepthStr = String(stats.maxDepth || 0);
+      const parseTimeStr = (stats.parseTimeMs ?? 0).toFixed(1);
+      const byteSizeStr = (stats.byteSize || 0).toLocaleString();
+
       bodyEl.innerHTML = `
         <div class="pjv-tools-panel">
           <span class="pjv-tools-hint">Real-time analytical metrics for the current payload:</span>
           <div class="pjv-analytics-grid">
             <div class="pjv-analytics-card">
               <span class="analytics-label">📦 Payload Size</span>
-              <span class="analytics-val">${stats.formattedSize}</span>
-              <span class="analytics-sub">${stats.byteSize.toLocaleString()} bytes</span>
+              <span class="analytics-val">${formattedSize}</span>
+              <span class="analytics-sub">${byteSizeStr} bytes</span>
             </div>
 
             <div class="pjv-analytics-card">
               <span class="analytics-label">🔑 Total Keys</span>
-              <span class="analytics-val">${stats.totalKeys.toLocaleString()}</span>
+              <span class="analytics-val">${totalKeysStr}</span>
               <span class="analytics-sub">Across all objects</span>
             </div>
 
             <div class="pjv-analytics-card">
               <span class="analytics-label">📋 Array Count</span>
-              <span class="analytics-val">${stats.arrayCount.toLocaleString()}</span>
+              <span class="analytics-val">${arrayCountStr}</span>
               <span class="analytics-sub">Lists and collections</span>
             </div>
 
             <div class="pjv-analytics-card">
+              <span class="analytics-label">🧱 Objects Found</span>
+              <span class="analytics-val">${objectCountStr}</span>
+              <span class="analytics-sub">JSON structured objects</span>
+            </div>
+
+            <div class="pjv-analytics-card">
               <span class="analytics-label">📏 Max Nesting Depth</span>
-              <span class="analytics-val">Level ${stats.maxDepth}</span>
+              <span class="analytics-val">Level ${maxDepthStr}</span>
               <span class="analytics-sub">Maximum hierarchy</span>
             </div>
 
             <div class="pjv-analytics-card">
               <span class="analytics-label">⚡ Deserialization Time</span>
-              <span class="analytics-val">${stats.parseTimeMs} ms</span>
+              <span class="analytics-val">${parseTimeStr} ms</span>
               <span class="analytics-sub">Engine benchmark</span>
             </div>
           </div>
@@ -5099,7 +5164,7 @@ function openToolsModal(options) {
       if (healthReport.collections.length > 1) {
         collectionSelectorHtml = `
           <div class="pjv-health-collections-nav">
-            <span style="font-size:12px; color:var(--pjv-text-muted); font-weight:600;">Collections:</span>
+            <span class="pjv-control-label">Collections:</span>
             ${healthReport.collections.map((col, idx) => `
               <button class="pjv-btn ${idx === activeCollectionIdx ? 'active' : ''}" data-col-idx="${idx}">
                 ${escapeHtml(col.name)} (${col.totalRecords} rows)
@@ -5134,23 +5199,26 @@ function openToolsModal(options) {
           return `
             <tr>
               <td>
-                <strong style="color:var(--pjv-syntax-key); font-family:var(--pjv-font-mono, monospace);">${escapeHtml(f.name)}</strong>
-                ${f.issues.length > 0 ? `<div style="font-size:11px; color:var(--pjv-text-muted); margin-top:2px;">${escapeHtml(f.issues.join('; '))}</div>` : ''}
+                <strong class="pjv-depth-val pjv-mono">${escapeHtml(f.name)}</strong>
+                ${f.issues.length > 0 ? `<div class="pjv-diff-empty-desc">${escapeHtml(f.issues.join('; '))}</div>` : ''}
               </td>
               <td>
                 <div class="pjv-health-bar-container">
-                  <div class="pjv-health-bar-fill" style="width:${f.presenceRate}%; background:${presenceColor};"></div>
+                  <svg width="80" height="6" viewBox="0 0 100 6" class="pjv-health-bar-svg">
+                    <rect x="0" y="0" width="100" height="6" rx="3" fill="var(--pjv-border-color)" opacity="0.35" />
+                    <rect x="0" y="0" width="${f.presenceRate}" height="6" rx="3" fill="${presenceColor}" />
+                  </svg>
                 </div>
-                <span style="font-size:11px; font-family:var(--pjv-font-mono, monospace); color:${presenceColor}; font-weight:600;">${f.presenceRate}% (${f.presenceCount}/${activeCol.totalRecords})</span>
+                <span class="pjv-progress-label">${f.presenceRate}% (${f.presenceCount}/${activeCol.totalRecords})</span>
               </td>
               <td>
-                <span style="font-size:11.5px; font-family:var(--pjv-font-mono, monospace); color:${nullColor}; font-weight:600;">${f.nullRate}%</span>
-                <span style="font-size:10.5px; color:var(--pjv-text-muted);">(${f.nullCount} rows)</span>
+                <span class="pjv-progress-label">${f.nullRate}%</span>
+                <span class="pjv-diff-empty-desc">(${f.nullCount} rows)</span>
               </td>
               <td>
-                <div style="display:flex; flex-wrap:wrap; gap:4px;">${typeBadges}</div>
+                <div class="pjv-type-badges-wrap">${typeBadges}</div>
               </td>
-              <td style="text-align:right;">${statusBadge}</td>
+              <td class="pjv-text-right">${statusBadge}</td>
             </tr>
           `;
         }).join('');
@@ -5160,7 +5228,7 @@ function openToolsModal(options) {
       if (activeCol && activeCol.anomalies.length > 0) {
         anomaliesListHtml = `
           <div class="pjv-health-anomalies-section">
-            <h4 style="margin:12px 0 8px 0; font-size:13px; color:#f87171; display:flex; align-items:center; gap:6px;">
+            <h4 class="pjv-health-anomaly-title">
               <span>🚨</span> Detected Schema Anomalies (${activeCol.anomalies.length})
             </h4>
             <div class="pjv-anomalies-list">
@@ -5171,7 +5239,7 @@ function openToolsModal(options) {
                   ${a.observedValue !== undefined ? `<code class="pjv-anomaly-val">${escapeHtml(JSON.stringify(a.observedValue))}</code>` : ''}
                 </div>
               `).join('')}
-              ${activeCol.anomalies.length > 20 ? `<div style="font-size:11px; color:var(--pjv-text-muted); padding:4px;">...and ${activeCol.anomalies.length - 20} more anomalies.</div>` : ''}
+              ${activeCol.anomalies.length > 20 ? `<div class="pjv-diff-empty-desc">...and ${activeCol.anomalies.length - 20} more anomalies.</div>` : ''}
             </div>
           </div>
         `;
@@ -5186,10 +5254,10 @@ function openToolsModal(options) {
                 <span class="health-score-sub">Health Score</span>
               </div>
               <div class="pjv-health-banner-info">
-                <h4 style="margin:0 0 4px 0; font-size:15px; color:var(--pjv-text-main); display:flex; align-items:center; gap:6px;">
+                <h4 class="pjv-health-header-title">
                   <span>${statusIcon}</span> ${healthReport.status.toUpperCase()} — Schema Health
                 </h4>
-                <p style="margin:0; font-size:12px; color:var(--pjv-text-muted);">
+                <p class="pjv-health-header-desc">
                   Audited ${healthReport.totalCollectionsAudited} collection(s) across payload. Found ${healthReport.totalAnomaliesCount} schema anomaly occurrences.
                 </p>
               </div>
@@ -5218,11 +5286,11 @@ function openToolsModal(options) {
               </div>
               <div class="pjv-health-stat-chip">
                 <span class="label">🚨 Type Inconsistencies</span>
-                <span class="val" style="color:${activeCol.summary.inconsistentFields > 0 ? '#ef4444' : 'inherit'};">${activeCol.summary.inconsistentFields}</span>
+                <span class="val">${activeCol.summary.inconsistentFields}</span>
               </div>
               <div class="pjv-health-stat-chip">
                 <span class="label">⚠️ Missing In Some Rows</span>
-                <span class="val" style="color:${activeCol.summary.missingFields > 0 ? '#f59e0b' : 'inherit'};">${activeCol.summary.missingFields}</span>
+                <span class="val">${activeCol.summary.missingFields}</span>
               </div>
             </div>
 
@@ -5234,7 +5302,7 @@ function openToolsModal(options) {
                     <th>Presence Rate</th>
                     <th>Null Rate</th>
                     <th>Observed Types</th>
-                    <th style="text-align:right;">Status</th>
+                    <th class="pjv-text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -5245,7 +5313,7 @@ function openToolsModal(options) {
 
             ${anomaliesListHtml}
           ` : `
-            <div style="padding:24px; text-align:center; color:var(--pjv-text-muted);">
+            <div class="pjv-health-empty">
               No array collections found in current payload. Schema is single object structure.
             </div>
           `}
@@ -5325,11 +5393,10 @@ function openShortcutsModal() {
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
   const backdrop = document.createElement('div');
-  backdrop.className = 'pjv-modal-backdrop pjv-shortcuts-backdrop';
+  backdrop.className = 'pjv-shortcuts-backdrop';
 
   const modal = document.createElement('div');
-  modal.className = 'pjv-modal pjv-shortcuts-modal';
-  modal.style.cssText = 'max-width: 580px; width: 90%; background: var(--pjv-bg-card, #1e1e2d); border: 1px solid var(--pjv-border-color, #2e2e44); border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); padding: 0; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
+  modal.className = 'pjv-shortcuts-dialog';
 
   const sectionsHtml = SHORTCUT_DEFINITIONS.map((group) => {
     const rowsHtml = group.shortcuts.map((sc) => {
@@ -5338,40 +5405,40 @@ function openShortcutsModal() {
         if (k === 'Cmd' && !isMac) displayKey = 'Ctrl';
         if (k === 'Alt' && isMac) displayKey = '⌥ Option';
         return `<kbd>${displayKey}</kbd>`;
-      }).join(' <span style="color:var(--pjv-text-muted);font-size:11px;">+</span> ');
+      }).join(' <span class="pjv-control-label">+</span> ');
 
       return `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-          <span style="font-size: 12.5px; color: var(--pjv-text-main);">${sc.description}</span>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">${sc.description}</span>
           <div class="pjv-kbd-group">${keysHtml}</div>
         </div>
       `;
     }).join('');
 
     return `
-      <div style="margin-bottom: 18px;">
-        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--pjv-syntax-key); margin-bottom: 6px;">${group.category}</div>
+      <div class="pjv-shortcuts-group">
+        <div class="pjv-shortcuts-group-title">${group.category}</div>
         <div>${rowsHtml}</div>
       </div>
     `;
   }).join('');
 
   modal.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--pjv-border-color); background: var(--pjv-bg-main);">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 18px;">⌨️</span>
-        <h3 style="margin: 0; font-size: 15px; color: var(--pjv-syntax-key); font-weight: 700;">Keyboard Shortcuts</h3>
+    <div class="pjv-shortcuts-header">
+      <div class="pjv-shortcuts-title-wrap">
+        <span class="pjv-shortcuts-icon">⌨️</span>
+        <h3>Keyboard Shortcuts</h3>
       </div>
-      <button id="pjv-shortcuts-close" class="pjv-btn" style="padding: 4px 8px; border-radius: 4px; cursor: pointer;">✕</button>
+      <button id="pjv-shortcuts-close" class="pjv-btn">✕</button>
     </div>
 
-    <div style="padding: 20px 24px; max-height: 70vh; overflow-y: auto;">
+    <div class="pjv-shortcuts-body">
       ${sectionsHtml}
     </div>
 
-    <div style="padding: 10px 20px; background: var(--pjv-bg-main); border-top: 1px solid var(--pjv-border-color); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--pjv-text-muted);">
+    <div class="pjv-shortcuts-footer">
       <span>Press <kbd>Esc</kbd> or click ✕ to dismiss</span>
-      <span style="font-weight: 500;">Pro JSON Viewer</span>
+      <span>Pro JSON Viewer</span>
     </div>
   `;
 
@@ -5494,7 +5561,7 @@ class ProgressLoader {
         </div>
 
         <div class="pjv-progress-track">
-          <div class="pjv-progress-fill" id="pjv-progress-fill" style="width: 5%;"></div>
+          <div class="pjv-progress-fill" id="pjv-progress-fill"></div>
         </div>
 
         <div class="pjv-progress-footer">
@@ -6232,9 +6299,8 @@ async function renderApp(mountTarget, rawJsonText) {
 }
 
 function initProJsonViewer() {
-  // Only inject on page responses if inside extension environment
   if (typeof chrome === 'undefined' || !chrome.runtime) return;
-  if (window.location.protocol === 'chrome-extension:') return; // Options page or popup page context
+  if (window.location.protocol === 'chrome-extension:' || window.location.protocol === 'moz-extension:') return;
 
   if (document.body && document.body.classList.contains('pjv-injected')) return;
 
@@ -6272,21 +6338,33 @@ function initProJsonViewer() {
 }
 
 function extractRawJsonText() {
-  const contentType = document.contentType || '';
-  const isJsonHeader =
-    contentType.includes('application/json') ||
-    contentType.includes('text/json') ||
-    contentType.includes('application/x-json');
+  const contentType = (document.contentType || '').toLowerCase();
+  const isJsonHeader = contentType.includes('json') || contentType.includes('+json');
+  const isJsonFileExt = window.location.pathname.toLowerCase().endsWith('.json');
 
-  const isJsonFileExt = window.location.pathname.endsWith('.json');
-
-  if (isJsonHeader || isJsonFileExt) {
-    const pre = document.querySelector('body > pre');
-    if (pre) return pre.textContent;
-    return document.body.innerText;
+  // Check 1: Standard <pre> tag (Chrome / Edge / Firefox / Safari)
+  const pre = document.querySelector('body > pre, pre');
+  if (pre && pre.textContent?.trim()) {
+    try {
+      const text = pre.textContent.trim();
+      JSON.parse(text);
+      return text;
+    } catch (e) {}
   }
 
-  const bodyText = document.body.innerText.trim();
+  // Check 2: If JSON content-type or .json extension, check innerText / textContent
+  if (isJsonHeader || isJsonFileExt) {
+    const text = (document.body?.innerText || document.body?.textContent || '').trim();
+    if (text) {
+      try {
+        JSON.parse(text);
+        return text;
+      } catch (e) {}
+    }
+  }
+
+  // Check 3: Heuristic check for raw JSON bodies
+  const bodyText = (document.body?.innerText || document.body?.textContent || '').trim();
   if ((bodyText.startsWith('{') && bodyText.endsWith('}')) || (bodyText.startsWith('[') && bodyText.endsWith(']'))) {
     if (bodyText.length < 5000000) {
       try {
@@ -6318,3 +6396,4 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
     }
   });
 }
+

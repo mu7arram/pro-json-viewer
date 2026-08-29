@@ -76,6 +76,117 @@
     button.btn-save:hover {
       background: #0369a1;
     }
+    .firefox-guide-card {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(234, 88, 12, 0.08));
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 10px;
+      padding: 16px;
+      margin: 18px 0;
+      color: #fef08a;
+    }
+    .guide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .guide-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .guide-lead {
+      font-size: 12.5px;
+      color: #cbd5e1;
+      margin: 0 0 14px 0;
+      line-height: 1.5;
+    }
+    .guide-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .guide-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #f59e0b;
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-content {
+      font-size: 12.5px;
+      color: #e2e8f0;
+      line-height: 1.4;
+    }
+    .step-content strong {
+      color: #fbbf24;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .step-content p {
+      margin: 0;
+    }
+    .code-box {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      color: #fef08a;
+      font-size: 12px;
+    }
+    .btn-copy-setting {
+      margin-top: 6px;
+      background: #f59e0b;
+      color: #0f172a;
+      font-weight: 700;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      cursor: pointer;
+    }
+    .btn-copy-setting:hover {
+      background: #fbbf24;
+    }
+    .guide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(245, 158, 11, 0.25);
+      font-size: 12px;
+    }
+    .btn-test-link {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .btn-test-link:hover {
+      text-decoration: underline;
+    }
     #scratchpad-view {
       display: none;
       height: 100vh;
@@ -92,6 +203,46 @@
       </svg>
       Pro JSON Viewer Settings
     </h1>
+
+    <!-- Firefox Activation Guide -->
+    <div id="firefox-guide" class="firefox-guide-card" style="display:none;">
+      <div class="guide-header">
+        <div class="guide-title">🦊 10-Second Firefox Setup Guide</div>
+      </div>
+      <p class="guide-lead">Firefox blocks extensions on JSON endpoints by default. Follow these 3 quick steps to enable Pro JSON Viewer on all API responses:</p>
+      
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Open Configuration</strong>
+            <p>Type <code class="code-box">about:config</code> in your Firefox address bar and press Enter.</p>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>Search Setting</strong>
+            <p>Search for: <code class="code-box">devtools.jsonview.enabled</code></p>
+            <div style="margin-top:5px;">
+              <button id="copy-setting-btn" class="btn-copy-setting">📋 Copy Setting Name</button>
+              <span id="copy-setting-toast" style="display:none; color:#4ade80; font-size:12px; margin-left:8px; font-weight:600;">✓ Copied to clipboard!</span>
+            </div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>Toggle to False</strong>
+            <p>Double-click the setting or click the <strong>Toggle ⇄</strong> button so its value becomes <code class="code-box">false</code>.</p>
+          </div>
+        </div>
+      </div>
+      <div class="guide-footer">
+        <span>🎉 You're all set! Pro JSON Viewer is now active.</span>
+        <a href="https://api.github.com/users/react/repos" target="_blank" class="btn-test-link">Test on GitHub API →</a>
+      </div>
+    </div>
 
     <div class="section-title">General Preferences</div>
     
