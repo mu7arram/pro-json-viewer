@@ -1,4 +1,4 @@
-import { generateTypeScript, generateZodSchema, analyzePayloadStats } from '../engine/schema-generator';
+import { generateTypeScript, generateZodSchema, analyzePayloadStats, formatByteSize } from '../engine/schema-generator';
 import { jsonToYaml, jsonToCsv, downloadFile } from '../engine/export-engine';
 import { analyzePayloadSchemaHealth, generateSchemaHealthMarkdown } from '../engine/schema-health';
 import { copyToClipboard } from '../shared/utils';
