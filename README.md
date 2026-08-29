@@ -188,6 +188,12 @@ npm run typecheck # Validates 0 TypeScript type errors
 
 ---
 
+## 🔒 Privacy
+
+Pro JSON Viewer is 100% private, offline, and runs entirely in local browser memory. Zero analytics, zero telemetry, and zero outbound network calls. Read our full **[Privacy Policy](PRIVACY.md)**.
+
+---
+
 ## 📄 License
 
 This project is open-source software licensed under the **[MIT License](LICENSE)**.
