@@ -56,6 +56,7 @@ async function initProJsonViewer() {
   root.appendChild(diffContainer);
 
   // Clear existing document and mount Pro JSON Viewer
+  document.querySelectorAll('link[href*="jsonview"], style[id*="jsonview"], div#json, div.jsonContainer').forEach(el => el.remove());
   document.body.innerHTML = '';
   document.body.appendChild(root);
 
@@ -185,30 +186,39 @@ async function initProJsonViewer() {
 }
 
 function extractRawJsonText(): string | null {
-  const contentType = document.contentType || '';
-  const isJsonHeader =
-    contentType.includes('application/json') ||
-    contentType.includes('text/json') ||
-    contentType.includes('application/x-json');
+  const contentType = (document.contentType || '').toLowerCase();
+  const isJsonHeader = contentType.includes('json') || contentType.includes('+json');
+  const isJsonFileExt = window.location.pathname.toLowerCase().endsWith('.json');
 
-  const isJsonFileExt = window.location.pathname.endsWith('.json');
-
-  if (isJsonHeader || isJsonFileExt) {
-    const pre = document.querySelector('body > pre');
-    if (pre) return pre.textContent;
-    return document.body.innerText;
+  // Check 1: Standard <pre> tag (Chrome / Edge / Firefox / Safari)
+  const pre = document.querySelector('body > pre, pre');
+  if (pre && pre.textContent?.trim()) {
+    try {
+      const text = pre.textContent.trim();
+      JSON.parse(text);
+      return text;
+    } catch {}
   }
 
-  // Fallback check if body starts and ends with valid JSON braces
-  const bodyText = document.body.innerText.trim();
+  // Check 2: If JSON content-type or .json extension, check innerText / textContent
+  if (isJsonHeader || isJsonFileExt) {
+    const text = (document.body?.innerText || document.body?.textContent || '').trim();
+    if (text) {
+      try {
+        JSON.parse(text);
+        return text;
+      } catch {}
+    }
+  }
+
+  // Check 3: Heuristic check for raw JSON bodies
+  const bodyText = (document.body?.innerText || document.body?.textContent || '').trim();
   if ((bodyText.startsWith('{') && bodyText.endsWith('}')) || (bodyText.startsWith('[') && bodyText.endsWith(']'))) {
-    if (bodyText.length < 5000000) { // Limit heuristic auto-detection size to 5MB
+    if (bodyText.length < 5000000) {
       try {
         JSON.parse(bodyText);
         return bodyText;
-      } catch {
-        // Not JSON
-      }
+      } catch {}
     }
   }
 
@@ -235,3 +245,5 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
     }
   });
 }
+
+

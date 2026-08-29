@@ -366,10 +366,10 @@ export class ChartView {
     // Empty state handling
     if (this.datasets.length === 0) {
       const emptyState = document.createElement('div');
-      emptyState.style.cssText = 'padding: 40px; text-align: center; color: var(--pjv-text-muted);';
+      emptyState.className = 'pjv-empty-state';
       emptyState.innerHTML = `
-        <h3 style="margin-top:0; color:var(--pjv-syntax-key);">📈 Chart View Unavailable</h3>
-        <p style="font-size: 13px; max-width: 460px; margin: 0 auto; line-height: 1.5;">
+        <h3>📈 Chart View Unavailable</h3>
+        <p>
           No numeric metrics, categorical breakdowns, or chartable series were detected in this JSON payload at <strong>Scan Depth ${this.scanDepth}</strong>.
           <br><br>
           👉 Use the <strong>Scan Depth slider</strong> above to scan deeper (e.g. Depth 5 to 20).
@@ -714,7 +714,7 @@ export class ChartView {
 
   private renderSvgDonut(slices: { label: string; value: number }[]): string {
     const total = slices.reduce((sum, s) => sum + s.value, 0);
-    if (total === 0) return '<div style="color:var(--pjv-text-muted); padding:20px;">No non-zero data for donut chart</div>';
+    if (total === 0) return '<div class="pjv-empty-state"><p>No non-zero data for donut chart</p></div>';
 
     const radius = 60;
     const strokeWidth = 24;
@@ -723,8 +723,8 @@ export class ChartView {
 
     const svgPaths = slices.map((slice, i) => {
       const pct = slice.value / total;
-      const dashArray = `${pct * circumference} ${circumference}`;
-      const dashOffset = -accumulatedAngle * circumference;
+      const dashArray = `${(pct * circumference).toFixed(2)} ${circumference.toFixed(2)}`;
+      const dashOffset = (-accumulatedAngle * circumference).toFixed(2);
       accumulatedAngle += pct;
       const color = PALETTE[i % PALETTE.length];
 
@@ -736,7 +736,7 @@ export class ChartView {
           stroke-width="${strokeWidth}"
           stroke-dasharray="${dashArray}"
           stroke-dashoffset="${dashOffset}"
-          style="transition: stroke-width 0.2s ease, opacity 0.2s ease; cursor: pointer;"
+          class="pjv-donut-slice"
         >
           <title>${this.escapeHtml(slice.label)}: ${formatNumericValue(slice.value)} (${(pct * 100).toFixed(1)}%)</title>
         </circle>
@@ -746,10 +746,12 @@ export class ChartView {
     const formattedTotal = formatNumericValue(total);
 
     return `
-      <svg width="160" height="160" viewBox="0 0 160 160" style="transform: rotate(-90deg); flex-shrink: 0;">
-        ${svgPaths}
+      <svg width="160" height="160" viewBox="0 0 160 160" class="pjv-donut-svg">
+        <g transform="rotate(-90 80 80)">
+          ${svgPaths}
+        </g>
         <text x="80" y="85" text-anchor="middle" dominant-baseline="middle"
-              style="transform: rotate(90deg); transform-origin: center; font-weight:700; font-size:16px; fill:var(--pjv-text-main);">
+              class="pjv-donut-center-text">
           ${formattedTotal}
         </text>
       </svg>
@@ -764,7 +766,9 @@ export class ChartView {
       return `
         <div class="pjv-legend-item">
           <div class="pjv-legend-left">
-            <div class="pjv-legend-dot" style="background:${color};"></div>
+            <svg width="10" height="10" viewBox="0 0 10 10" class="pjv-legend-dot-svg">
+              <circle cx="5" cy="5" r="5" fill="${color}" />
+            </svg>
             <span>${this.escapeHtml(slice.label)}</span>
           </div>
           <div class="pjv-legend-val">${formatNumericValue(slice.value)} (${pct}%)</div>
@@ -779,46 +783,90 @@ export class ChartView {
     const maxVal = Math.max(...items.map((i) => i.value), 1);
 
     if (isVertical) {
-      const barCols = items.map((item, i) => {
+      const baseW = 680;
+      const gap = 16;
+      const count = Math.max(1, items.length);
+      const barW = Math.min(54, Math.max(32, Math.floor((baseW - 60) / count) - gap));
+      const totalBarsW = count * barW + (count - 1) * gap;
+      const totalW = Math.max(baseW, totalBarsW + 60);
+      const startX = Math.max(30, (totalW - totalBarsW) / 2);
+      const chartH = 160;
+      const totalH = chartH + 60;
+
+      const barsSvg = items.map((item, i) => {
         const color = PALETTE[i % PALETTE.length];
-        const pct = Math.min(100, Math.max(4, (item.value / maxVal) * 100));
-        const isRtl = /[\u0600-\u06FF]/.test(item.label);
+        const barH = Math.max(4, (item.value / maxVal) * chartH);
+        const x = startX + i * (barW + gap);
+        const y = chartH - barH + 20;
+        const formattedVal = formatNumericValue(item.value);
+        const label = this.escapeHtml(item.label);
+        const shortLabel = label.length > 10 ? label.substring(0, 9) + '…' : label;
 
         return `
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; min-width: 45px;">
-            <span style="font-size: 11px; font-weight: 700; font-family: var(--pjv-font-mono); color: ${color};">${formatNumericValue(item.value)}</span>
-            <div style="width: 100%; height: 140px; background: var(--pjv-border-color); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden;">
-              <div style="width: 100%; height: ${pct}%; background: ${color}; border-radius: 6px 6px 0 0; transition: height 0.4s ease;"></div>
-            </div>
-            <span ${isRtl ? 'dir="rtl"' : ''} style="font-size: 10px; color: var(--pjv-text-muted); text-align: center; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 80px;" title="${this.escapeHtml(item.label)}">
-              ${this.escapeHtml(item.label)}
-            </span>
-          </div>
+          <g class="pjv-svg-bar-group">
+            <rect x="${x}" y="20" width="${barW}" height="${chartH}" rx="5" fill="var(--pjv-border-color)" opacity="0.35" />
+            <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" fill="${color}">
+              <title>${label}: ${formattedVal}</title>
+            </rect>
+            <text x="${x + barW / 2}" y="${Math.max(14, y - 6)}" text-anchor="middle" font-size="11" font-weight="700" font-family="var(--pjv-font-mono)" fill="${color}">
+              ${formattedVal}
+            </text>
+            <text x="${x + barW / 2}" y="${chartH + 38}" text-anchor="middle" font-size="11" fill="var(--pjv-text-muted)">
+              ${shortLabel}
+              <title>${label}</title>
+            </text>
+          </g>
         `;
       }).join('');
 
-      return `<div style="display: flex; align-items: flex-end; gap: 12px; padding: 10px 0; overflow-x: auto;">${barCols}</div>`;
+      return `
+        <div class="pjv-chart-svg-container">
+          <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+            ${barsSvg}
+          </svg>
+        </div>
+      `;
     }
 
-    const barRows = items.map((item, i) => {
+    // Horizontal Bar Chart
+    const rowH = 38;
+    const barTrackH = 14;
+    const totalW = 680;
+    const totalH = items.length * rowH + 10;
+    const maxBarW = totalW - 20;
+
+    const rowsSvg = items.map((item, i) => {
       const color = PALETTE[i % PALETTE.length];
-      const pct = Math.min(100, Math.max(0, (item.value / maxVal) * 100));
-      const isRtl = /[\u0600-\u06FF]/.test(item.label);
+      const barW = Math.max(6, (item.value / maxVal) * maxBarW);
+      const y = i * rowH + 8;
+      const formattedVal = formatNumericValue(item.value);
+      const label = this.escapeHtml(item.label);
+      const shortLabel = label.length > 36 ? label.substring(0, 34) + '…' : label;
 
       return `
-        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
-          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--pjv-text-main);">
-            <span ${isRtl ? 'dir="rtl"' : ''} style="font-weight: 500;">${this.escapeHtml(item.label)}</span>
-            <span style="font-weight: 700; font-family: var(--pjv-font-mono); color: ${color};">${formatNumericValue(item.value)}</span>
-          </div>
-          <div style="height: 10px; background: var(--pjv-border-color); border-radius: 5px; overflow: hidden; position: relative;">
-            <div style="height: 100%; width: ${pct}%; background: ${color}; border-radius: 5px; transition: width 0.4s ease;"></div>
-          </div>
-        </div>
+        <g class="pjv-svg-hbar-group">
+          <text x="0" y="${y + 12}" font-size="11.5" font-weight="600" fill="var(--pjv-text-main)">
+            ${shortLabel}
+            <title>${label}</title>
+          </text>
+          <text x="${totalW}" y="${y + 12}" text-anchor="end" font-size="11.5" font-weight="700" font-family="var(--pjv-font-mono)" fill="${color}">
+            ${formattedVal}
+          </text>
+          <rect x="0" y="${y + 18}" width="${totalW}" height="${barTrackH}" rx="7" fill="var(--pjv-border-color)" opacity="0.35" />
+          <rect x="0" y="${y + 18}" width="${barW}" height="${barTrackH}" rx="7" fill="${color}">
+            <title>${label}: ${formattedVal}</title>
+          </rect>
+        </g>
       `;
     }).join('');
 
-    return `<div>${barRows}</div>`;
+    return `
+      <div class="pjv-chart-svg-container">
+        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+          ${rowsSvg}
+        </svg>
+      </div>
+    `;
   }
 
   private escapeHtml(str: string): string {

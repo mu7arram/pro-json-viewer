@@ -130,16 +130,21 @@ Press `?` or click **⌨️ Shortcuts** in the toolbar at any time to display th
 1. Clone or download this repository:
    ```bash
    git clone https://github.com/mu7arram/pro-json-viewer.git
-   ```
-2. Install dependencies and build the production bundle:
-   ```bash
+   cd pro-json-viewer
    npm install
-   npm run build
    ```
-3. Open Google Chrome (or any Chromium browser like Brave, Edge, Opera).
-4. Navigate to `chrome://extensions`.
-5. Toggle **Developer mode** on (top-right switch).
-6. Click **Load unpacked** (top-left button) and select the project root folder.
+2. Build for your target browser:
+   - **Chrome / Edge / Brave / Arc / Opera**:
+     ```bash
+     npm run build:chrome
+     ```
+     Go to `chrome://extensions` $\rightarrow$ enable **Developer mode** $\rightarrow$ **Load unpacked** $\rightarrow$ select the `dist/` directory.
+   - **Mozilla Firefox**:
+     ```bash
+     npm run build:firefox
+     ```
+     Go to `about:debugging#/runtime/this-firefox` $\rightarrow$ click **Load Temporary Add-on…** $\rightarrow$ select `dist/manifest.json` (or `pro-json-viewer-firefox-v2.0.0.zip`).  
+     *(Note: In Firefox, set `devtools.jsonview.enabled` to `false` in `about:config` to let extensions format raw JSON tabs).*
 
 ---
 

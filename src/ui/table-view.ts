@@ -229,12 +229,11 @@ export class TableView {
 
   public render() {
     this.container.innerHTML = '';
-
     if (this.datasets.length === 0) {
       this.container.innerHTML = `
-        <div style="padding: 40px; text-align: center; color: var(--pjv-text-muted);">
-          <h3 style="margin-top:0; color:var(--pjv-syntax-key);">📊 Table View Unavailable</h3>
-          <p style="font-size: 13px; max-width: 420px; margin: 0 auto; line-height: 1.5;">
+        <div class="pjv-empty-state">
+          <h3>📊 Table View Unavailable</h3>
+          <p>
             No structured datasets or array of objects were detected in this JSON payload.
           </p>
         </div>

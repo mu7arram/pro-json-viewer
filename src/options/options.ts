@@ -72,6 +72,30 @@ async function initOptionsPage() {
     saveToast.style.display = 'inline';
     setTimeout(() => (saveToast.style.display = 'none'), 2000);
   };
+
+  // Firefox Guide Logic
+  const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.includes('Firefox');
+  const isWelcome = window.location.hash === '#welcome';
+  const firefoxGuide = document.getElementById('firefox-guide') as HTMLDivElement;
+  const copySettingBtn = document.getElementById('copy-setting-btn') as HTMLButtonElement;
+  const copySettingToast = document.getElementById('copy-setting-toast') as HTMLElement;
+
+  if (firefoxGuide && (isFirefox || isWelcome)) {
+    firefoxGuide.style.display = 'block';
+    if (isWelcome) {
+      firefoxGuide.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  if (copySettingBtn) {
+    copySettingBtn.onclick = async () => {
+      await copyToClipboard('devtools.jsonview.enabled');
+      if (copySettingToast) {
+        copySettingToast.style.display = 'inline';
+        setTimeout(() => (copySettingToast.style.display = 'none'), 2500);
+      }
+    };
+  }
 }
 
 async function launchScratchpad(container: HTMLElement) {

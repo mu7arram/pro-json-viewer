@@ -1,4 +1,4 @@
-import { generateTypeScript, generateZodSchema, analyzePayloadStats } from '../engine/schema-generator';
+import { generateTypeScript, generateZodSchema, analyzePayloadStats, formatByteSize } from '../engine/schema-generator';
 import { jsonToYaml, jsonToCsv, downloadFile } from '../engine/export-engine';
 import { analyzePayloadSchemaHealth, generateSchemaHealthMarkdown } from '../engine/schema-health';
 import { copyToClipboard } from '../shared/utils';
@@ -229,37 +229,51 @@ export function openToolsModal(options: ToolsModalOptions) {
       });
 
     } else if (activeTab === 'analytics') {
+      const formattedSize = stats.formattedSize || formatByteSize(stats.byteSize || 0);
+      const totalKeysStr = (stats.totalKeys || 0).toLocaleString();
+      const arrayCountStr = (stats.arrayCount || 0).toLocaleString();
+      const objectCountStr = (stats.objectCount || 0).toLocaleString();
+      const maxDepthStr = String(stats.maxDepth || 0);
+      const parseTimeStr = (stats.parseTimeMs ?? 0).toFixed(1);
+      const byteSizeStr = (stats.byteSize || 0).toLocaleString();
+
       bodyEl.innerHTML = `
         <div class="pjv-tools-panel">
           <span class="pjv-tools-hint">Real-time analytical metrics for the current payload:</span>
           <div class="pjv-analytics-grid">
             <div class="pjv-analytics-card">
               <span class="analytics-label">📦 Payload Size</span>
-              <span class="analytics-val">${stats.formattedSize}</span>
-              <span class="analytics-sub">${stats.byteSize.toLocaleString()} bytes</span>
+              <span class="analytics-val">${formattedSize}</span>
+              <span class="analytics-sub">${byteSizeStr} bytes</span>
             </div>
 
             <div class="pjv-analytics-card">
               <span class="analytics-label">🔑 Total Keys</span>
-              <span class="analytics-val">${stats.totalKeys.toLocaleString()}</span>
+              <span class="analytics-val">${totalKeysStr}</span>
               <span class="analytics-sub">Across all objects</span>
             </div>
 
             <div class="pjv-analytics-card">
               <span class="analytics-label">📋 Array Count</span>
-              <span class="analytics-val">${stats.arrayCount.toLocaleString()}</span>
+              <span class="analytics-val">${arrayCountStr}</span>
               <span class="analytics-sub">Lists and collections</span>
             </div>
 
             <div class="pjv-analytics-card">
+              <span class="analytics-label">🧱 Objects Found</span>
+              <span class="analytics-val">${objectCountStr}</span>
+              <span class="analytics-sub">JSON structured objects</span>
+            </div>
+
+            <div class="pjv-analytics-card">
               <span class="analytics-label">📏 Max Nesting Depth</span>
-              <span class="analytics-val">Level ${stats.maxDepth}</span>
+              <span class="analytics-val">Level ${maxDepthStr}</span>
               <span class="analytics-sub">Maximum hierarchy</span>
             </div>
 
             <div class="pjv-analytics-card">
               <span class="analytics-label">⚡ Deserialization Time</span>
-              <span class="analytics-val">${stats.parseTimeMs} ms</span>
+              <span class="analytics-val">${parseTimeStr} ms</span>
               <span class="analytics-sub">Engine benchmark</span>
             </div>
           </div>

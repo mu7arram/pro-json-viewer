@@ -21,7 +21,13 @@
     "open_in_tab": true
   },
   "background": {
-    "service_worker": "service-worker.js"
+    "scripts": ["service-worker.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "pro-json-viewer@mu7arram.dev",
+      "strict_min_version": "109.0"
+    }
   },
   "content_scripts": [
     {

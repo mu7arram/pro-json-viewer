@@ -10,113 +10,95 @@ export interface KeyboardShortcutsHandlers {
 }
 
 export function openShortcutsModal() {
-  const existingBackdrop = document.querySelector('.pjv-modal-backdrop');
+  const existingBackdrop = document.querySelector('.pjv-shortcuts-backdrop');
   if (existingBackdrop) existingBackdrop.remove();
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'pjv-modal-backdrop';
-  backdrop.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px);
-    z-index: 10000; display: flex; align-items: center; justify-content: center;
-  `;
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const modKey = isMac ? '⌥' : 'Alt';
   const cmdKey = isMac ? '⌘' : 'Ctrl';
 
+  const backdrop = document.createElement('div');
+  backdrop.className = 'pjv-shortcuts-backdrop';
+
   const modal = document.createElement('div');
-  modal.className = 'pjv-modal pjv-shortcuts-modal';
-  modal.style.cssText = `
-    background: var(--pjv-bg-main); color: var(--pjv-text-main);
-    border: 1px solid var(--pjv-border-color); border-radius: 10px;
-    width: 90%; max-width: 620px; padding: 22px 26px; box-shadow: 0 12px 36px rgba(0,0,0,0.55);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  `;
+  modal.className = 'pjv-shortcuts-dialog';
 
   modal.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--pjv-border-color); padding-bottom:12px; margin-bottom:18px;">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:20px;">⌨️</span>
-        <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--pjv-syntax-key);">Keyboard Shortcuts Cheatsheet</h3>
+    <div class="pjv-shortcuts-header">
+      <div class="pjv-shortcuts-title-wrap">
+        <span class="pjv-shortcuts-icon">⌨️</span>
+        <h3>Keyboard Shortcuts</h3>
       </div>
-      <button id="pjv-shortcuts-close-x" class="pjv-btn" style="padding:4px 8px; font-weight:700; border-radius:4px;">✕</button>
+      <button id="pjv-shortcuts-close-x" class="pjv-btn">✕</button>
     </div>
 
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; font-size:12px;">
+    <div class="pjv-shortcuts-body">
       <!-- Views & Navigation -->
-      <div class="pjv-shortcuts-section" style="background:var(--pjv-bg-badge); padding:12px 14px; border-radius:8px; border:1px solid var(--pjv-border-color);">
-        <div style="font-weight:700; color:var(--pjv-syntax-key); margin-bottom:10px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Navigation & Views</div>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:var(--pjv-text-muted);">Tree View</span>
-            <span class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>1</kbd></span>
-          </div>
-          <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:var(--pjv-text-muted);">Table View</span>
-            <span class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>2</kbd></span>
-          </div>
-          <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:var(--pjv-text-muted);">Chart View</span>
-            <span class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>3</kbd></span>
-          </div>
-          <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:var(--pjv-text-muted);">Diagram View</span>
-            <span class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>4</kbd></span>
-          </div>
-          <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:var(--pjv-text-muted);">Raw JSON View</span>
-            <span class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>5</kbd></span>
-          </div>
-          <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:var(--pjv-text-muted);">Compare Diff</span>
-            <span class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>6</kbd></span>
-          </div>
+      <div class="pjv-shortcuts-group">
+        <div class="pjv-shortcuts-group-title">Navigation & Views</div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Tree View</span>
+          <div class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>1</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Table View</span>
+          <div class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>2</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Chart View</span>
+          <div class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>3</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Diagram View</span>
+          <div class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>4</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Raw JSON View</span>
+          <div class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>5</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Compare Diff</span>
+          <div class="pjv-kbd-group"><kbd>${modKey}</kbd> + <kbd>6</kbd></div>
         </div>
       </div>
 
       <!-- Actions & Tree Operations -->
-      <div style="display:flex; flex-direction:column; gap:16px;">
-        <div class="pjv-shortcuts-section" style="background:var(--pjv-bg-badge); padding:12px 14px; border-radius:8px; border:1px solid var(--pjv-border-color);">
-          <div style="font-weight:700; color:var(--pjv-syntax-string); margin-bottom:10px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Search & Tools</div>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color:var(--pjv-text-muted);">Focus Search</span>
-              <span class="pjv-kbd-group"><kbd>/</kbd> or <kbd>${cmdKey}</kbd>+<kbd>F</kbd></span>
-            </div>
-            <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color:var(--pjv-text-muted);">Developer Tools</span>
-              <span class="pjv-kbd-group"><kbd>t</kbd></span>
-            </div>
-            <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color:var(--pjv-text-muted);">Help Cheatsheet</span>
-              <span class="pjv-kbd-group"><kbd>?</kbd></span>
-            </div>
-          </div>
+      <div class="pjv-shortcuts-group">
+        <div class="pjv-shortcuts-group-title">Search & Tools</div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Focus Search</span>
+          <div class="pjv-kbd-group"><kbd>/</kbd> or <kbd>${cmdKey}</kbd>+<kbd>F</kbd></div>
         </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Developer Tools</span>
+          <div class="pjv-kbd-group"><kbd>t</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Help Cheatsheet</span>
+          <div class="pjv-kbd-group"><kbd>?</kbd></div>
+        </div>
+      </div>
 
-        <div class="pjv-shortcuts-section" style="background:var(--pjv-bg-badge); padding:12px 14px; border-radius:8px; border:1px solid var(--pjv-border-color);">
-          <div style="font-weight:700; color:#f59e0b; margin-bottom:10px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Tree Operations</div>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color:var(--pjv-text-muted);">Expand All</span>
-              <span class="pjv-kbd-group"><kbd>e</kbd></span>
-            </div>
-            <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color:var(--pjv-text-muted);">Collapse All</span>
-              <span class="pjv-kbd-group"><kbd>c</kbd></span>
-            </div>
-            <div class="pjv-shortcut-row" style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color:var(--pjv-text-muted);">Close Dialogs</span>
-              <span class="pjv-kbd-group"><kbd>Esc</kbd></span>
-            </div>
-          </div>
+      <div class="pjv-shortcuts-group">
+        <div class="pjv-shortcuts-group-title">Tree Operations</div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Expand All</span>
+          <div class="pjv-kbd-group"><kbd>e</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Collapse All</span>
+          <div class="pjv-kbd-group"><kbd>c</kbd></div>
+        </div>
+        <div class="pjv-shortcuts-row">
+          <span class="pjv-shortcuts-desc">Close Dialogs</span>
+          <div class="pjv-kbd-group"><kbd>Esc</kbd></div>
         </div>
       </div>
     </div>
 
-    <div style="display:flex; justify-content:flex-end; margin-top:20px;">
-      <button id="pjv-shortcuts-close" class="pjv-btn active" style="padding:6px 16px;">Got It</button>
+    <div class="pjv-shortcuts-footer">
+      <span>Press <kbd>Esc</kbd> or click ✕ to dismiss</span>
+      <button id="pjv-shortcuts-close" class="pjv-btn active">Got It</button>
     </div>
   `;
 
@@ -127,8 +109,8 @@ export function openShortcutsModal() {
   const closeXBtn = modal.querySelector('#pjv-shortcuts-close-x') as HTMLButtonElement;
 
   const close = () => backdrop.remove();
-  closeBtn.onclick = close;
-  closeXBtn.onclick = close;
+  if (closeBtn) closeBtn.onclick = close;
+  if (closeXBtn) closeXBtn.onclick = close;
   backdrop.onclick = (e) => {
     if (e.target === backdrop) close();
   };

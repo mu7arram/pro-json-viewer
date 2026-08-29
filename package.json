@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode development",
-    "build": "node scripts/generate-icons.js && vite build",
+    "build": "node scripts/build-extension.js chrome",
+    "build:chrome": "node scripts/build-extension.js chrome",
+    "build:firefox": "node scripts/build-extension.js firefox",
+    "build:all": "node scripts/build-extension.js chrome && node scripts/build-extension.js firefox",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -3,6 +3,7 @@ export interface PayloadStats {
   formattedSize: string;
   totalKeys: number;
   arrayCount: number;
+  objectCount: number;
   maxDepth: number;
   parseTimeMs?: number;
 }
@@ -32,6 +33,7 @@ export function analyzePayloadStats(rawText: string, data: any, parseTimeMs = 0)
   const byteSize = new Blob([rawText || JSON.stringify(data)]).size;
   let totalKeys = 0;
   let arrayCount = 0;
+  let objectCount = 0;
   let maxDepth = 0;
 
   function traverse(obj: any, depth = 1) {
@@ -42,6 +44,7 @@ export function analyzePayloadStats(rawText: string, data: any, parseTimeMs = 0)
       arrayCount++;
       obj.forEach((item) => traverse(item, depth + 1));
     } else {
+      objectCount++;
       const keys = Object.keys(obj);
       totalKeys += keys.length;
       keys.forEach((k) => traverse(obj[k], depth + 1));
@@ -53,9 +56,10 @@ export function analyzePayloadStats(rawText: string, data: any, parseTimeMs = 0)
   return {
     byteSize,
     formattedSize: formatByteSize(byteSize),
-    totalKeys,
-    arrayCount,
-    maxDepth,
+    totalKeys: totalKeys || 0,
+    arrayCount: arrayCount || 0,
+    objectCount: objectCount || 0,
+    maxDepth: maxDepth || 0,
     parseTimeMs: Math.round(parseTimeMs * 100) / 100
   };
 }

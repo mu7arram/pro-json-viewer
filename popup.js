@@ -65,6 +65,20 @@
     optionsBtn.onclick = () => {
       chrome.runtime.openOptionsPage();
     };
+
+    // Check if running on Firefox
+    const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.includes('Firefox');
+    const firefoxTip = document.getElementById('firefox-tip');
+    const firefoxGuideBtn = document.getElementById('open-firefox-guide');
+
+    if (isFirefox && firefoxTip) {
+      firefoxTip.style.display = 'block';
+      if (firefoxGuideBtn) {
+        firefoxGuideBtn.onclick = () => {
+          chrome.tabs.create({ url: chrome.runtime.getURL('options.html#welcome') });
+        };
+      }
+    }
   }
 
   document.addEventListener('DOMContentLoaded', initPopup);

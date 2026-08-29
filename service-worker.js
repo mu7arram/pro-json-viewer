@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS = {
 };
 
 // Service Worker setup & installation
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   // Initialize storage default settings if missing
   const { pro_json_settings } = await chrome.storage.local.get('pro_json_settings');
   if (!pro_json_settings) {
@@ -27,6 +27,14 @@ chrome.runtime.onInstalled.addListener(async () => {
     title: 'Format & View with Pro JSON',
     contexts: ['selection']
   });
+
+  // On first install, if running in Firefox, open Welcome & Setup guide
+  if (details && details.reason === 'install') {
+    const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.includes('Firefox');
+    if (isFirefox) {
+      chrome.tabs.create({ url: chrome.runtime.getURL('options.html#welcome') });
+    }
+  }
 });
 
 // Handle context menu clicks
