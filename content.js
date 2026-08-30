@@ -6330,6 +6330,7 @@ function initProJsonViewer() {
     document.head.appendChild(link);
 
     // Setup viewport
+    document.documentElement.classList.add('pjv-injected');
     document.body.classList.add('pjv-injected');
     document.body.innerHTML = '';
     
