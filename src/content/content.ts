@@ -26,7 +26,8 @@ async function initProJsonViewer() {
   const settings = await getSettings();
   if (!settings.autoActivateOnJson) return;
 
-  // Mark body injected
+  // Mark html and body injected
+  document.documentElement.classList.add('pjv-injected');
   document.body.classList.add('pjv-injected');
   document.documentElement.setAttribute('data-theme', settings.theme === 'system'
     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')

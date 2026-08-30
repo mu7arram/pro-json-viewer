@@ -271,7 +271,8 @@
   --pjv-pill-high-border: rgba(207, 34, 46, 0.3);
 }
 
-body, html {
+html.pjv-injected,
+body.pjv-injected {
   margin: 0;
   padding: 0;
   height: 100%;
