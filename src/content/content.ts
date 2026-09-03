@@ -1,5 +1,6 @@
 import { buildFlatNodes, parseJson } from '../engine/parser';
 import { searchTree } from '../engine/jsonpath';
+import { extractRawJsonFromDocument } from '../engine/smart-detector';
 import { FilterMode, FlatNode, ViewMode } from '../shared/types';
 import { getSettings } from '../shared/storage';
 import { copyToClipboard } from '../shared/utils';
@@ -187,43 +188,7 @@ async function initProJsonViewer() {
 }
 
 function extractRawJsonText(): string | null {
-  const contentType = (document.contentType || '').toLowerCase();
-  const isJsonHeader = contentType.includes('json') || contentType.includes('+json');
-  const isJsonFileExt = window.location.pathname.toLowerCase().endsWith('.json');
-
-  // Check 1: Standard <pre> tag (Chrome / Edge / Firefox / Safari)
-  const pre = document.querySelector('body > pre, pre');
-  if (pre && pre.textContent?.trim()) {
-    try {
-      const text = pre.textContent.trim();
-      JSON.parse(text);
-      return text;
-    } catch {}
-  }
-
-  // Check 2: If JSON content-type or .json extension, check innerText / textContent
-  if (isJsonHeader || isJsonFileExt) {
-    const text = (document.body?.innerText || document.body?.textContent || '').trim();
-    if (text) {
-      try {
-        JSON.parse(text);
-        return text;
-      } catch {}
-    }
-  }
-
-  // Check 3: Heuristic check for raw JSON bodies
-  const bodyText = (document.body?.innerText || document.body?.textContent || '').trim();
-  if ((bodyText.startsWith('{') && bodyText.endsWith('}')) || (bodyText.startsWith('[') && bodyText.endsWith(']'))) {
-    if (bodyText.length < 5000000) {
-      try {
-        JSON.parse(bodyText);
-        return bodyText;
-      } catch {}
-    }
-  }
-
-  return null;
+  return extractRawJsonFromDocument(document, window.location);
 }
 
 if (document.readyState === 'loading') {

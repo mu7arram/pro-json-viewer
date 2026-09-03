@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectSmartValue } from '../src/engine/smart-detector';
+import { detectSmartValue, extractRawJsonFromDocument } from '../src/engine/smart-detector';
 
 describe('SmartDetector', () => {
   it('detects and decodes JWT tokens', () => {
@@ -24,5 +24,81 @@ describe('SmartDetector', () => {
     const url = 'https://api.github.com/users/mu7arram';
     const result = detectSmartValue(url);
     expect(result?.type).toBe('url');
+  });
+
+  describe('extractRawJsonFromDocument', () => {
+    it('detects raw JSON API response with application/json header', () => {
+      const mockDoc = {
+        contentType: 'application/json',
+        body: {
+          children: [{ tagName: 'PRE' }],
+          firstElementChild: { tagName: 'PRE' },
+          textContent: '{"name": "React", "stars": 200000}'
+        },
+        querySelector: () => null
+      } as unknown as Document;
+
+      const mockLoc = { pathname: '/users/react/repos' } as Location;
+      const res = extractRawJsonFromDocument(mockDoc, mockLoc);
+      expect(res).toBe('{"name": "React", "stars": 200000}');
+    });
+
+    it('detects local or remote .json file', () => {
+      const mockDoc = {
+        contentType: 'text/plain',
+        body: {
+          children: [{ tagName: 'PRE' }],
+          firstElementChild: { tagName: 'PRE' },
+          textContent: '[1, 2, 3, 4]'
+        },
+        querySelector: () => null
+      } as unknown as Document;
+
+      const mockLoc = { pathname: '/configs/settings.json' } as Location;
+      const res = extractRawJsonFromDocument(mockDoc, mockLoc);
+      expect(res).toBe('[1, 2, 3, 4]');
+    });
+
+    it('does NOT activate on regular HTML websites like jsonformatter.org with nested pre tags', () => {
+      const mockDoc = {
+        contentType: 'text/html',
+        body: {
+          children: [
+            { tagName: 'HEADER' },
+            { tagName: 'NAV' },
+            { tagName: 'DIV' },
+            { tagName: 'FOOTER' }
+          ],
+          firstElementChild: { tagName: 'HEADER' },
+          textContent: 'JSON Formatter & Validator tool with code: {"test": 123}'
+        },
+        querySelector: (selector: string) => {
+          if (selector.includes('nav') || selector.includes('header') || selector.includes('button')) {
+            return { tagName: 'NAV' };
+          }
+          return null;
+        }
+      } as unknown as Document;
+
+      const mockLoc = { pathname: '/' } as Location;
+      const res = extractRawJsonFromDocument(mockDoc, mockLoc);
+      expect(res).toBeNull();
+    });
+
+    it('does NOT activate on HTML pages with multiple body children and no JSON header', () => {
+      const mockDoc = {
+        contentType: 'text/html',
+        body: {
+          children: [{ tagName: 'DIV' }, { tagName: 'PRE' }],
+          firstElementChild: { tagName: 'DIV' },
+          textContent: '{"foo": "bar"}'
+        },
+        querySelector: () => null
+      } as unknown as Document;
+
+      const mockLoc = { pathname: '/docs/api' } as Location;
+      const res = extractRawJsonFromDocument(mockDoc, mockLoc);
+      expect(res).toBeNull();
+    });
   });
 });

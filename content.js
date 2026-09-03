@@ -6339,41 +6339,52 @@ function initProJsonViewer() {
 }
 
 function extractRawJsonText() {
+  if (!document || !document.body) return null;
+
   const contentType = (document.contentType || '').toLowerCase();
   const isJsonHeader = contentType.includes('json') || contentType.includes('+json');
   const isJsonFileExt = window.location.pathname.toLowerCase().endsWith('.json');
 
-  // Check 1: Standard <pre> tag (Chrome / Edge / Firefox / Safari)
-  const pre = document.querySelector('body > pre, pre');
-  if (pre && pre.textContent?.trim()) {
-    try {
-      const text = pre.textContent.trim();
-      JSON.parse(text);
-      return text;
-    } catch (e) {}
-  }
-
-  // Check 2: If JSON content-type or .json extension, check innerText / textContent
+  // Case 1: Server explicitly sent JSON content-type header or URL is a .json file
   if (isJsonHeader || isJsonFileExt) {
-    const text = (document.body?.innerText || document.body?.textContent || '').trim();
-    if (text) {
-      try {
-        JSON.parse(text);
-        return text;
-      } catch (e) {}
+    const childCount = document.body.children.length;
+    const firstChild = document.body.firstElementChild;
+    const isSinglePreOrJsonDiv = childCount === 1 && (firstChild?.tagName === 'PRE' || firstChild?.id === 'json');
+    const isDirectText = childCount === 0;
+
+    if (isSinglePreOrJsonDiv || isDirectText) {
+      const text = (document.body.textContent || '').trim();
+      if (text && (text.startsWith('{') || text.startsWith('[') || text.startsWith('"') || text === 'null' || text === 'true' || text === 'false' || !isNaN(Number(text)))) {
+        try {
+          JSON.parse(text);
+          return text;
+        } catch (e) {}
+      }
+    }
+    return null;
+  }
+
+  // Case 2: Document has no JSON header (e.g. text/plain or local file)
+  // MUST strictly verify this is a raw browser document, NOT an HTML website.
+  // HTML websites (e.g. jsonformatter.org, swagger, blogs) have multiple elements, scripts, forms, navs, headers, etc.
+  const childCount = document.body.children.length;
+  const firstChild = document.body.firstElementChild;
+  const isSinglePre = childCount === 1 && firstChild?.tagName === 'PRE';
+  const isDirectText = childCount === 0;
+
+  if (isSinglePre || isDirectText) {
+    const hasHtmlStructure = document.querySelector('nav, header, footer, main, form, input, button, select, iframe, script:not([src*="extension"])');
+    if (!hasHtmlStructure) {
+      const text = (document.body.textContent || '').trim();
+      if (text && (text.startsWith('{') || text.startsWith('['))) {
+        try {
+          JSON.parse(text);
+          return text;
+        } catch (e) {}
+      }
     }
   }
 
-  // Check 3: Heuristic check for raw JSON bodies
-  const bodyText = (document.body?.innerText || document.body?.textContent || '').trim();
-  if ((bodyText.startsWith('{') && bodyText.endsWith('}')) || (bodyText.startsWith('[') && bodyText.endsWith(']'))) {
-    if (bodyText.length < 5000000) {
-      try {
-        JSON.parse(bodyText);
-        return bodyText;
-      } catch (e) {}
-    }
-  }
   return null;
 }
 
