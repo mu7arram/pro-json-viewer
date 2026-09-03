@@ -145,3 +145,55 @@ export function detectSchemaAnomalies(array: any[]): Set<number> {
 
   return anomalousIndexes;
 }
+
+export function extractRawJsonFromDocument(doc: Document = document, loc: Location = window.location): string | null {
+  if (!doc || !doc.body) return null;
+
+  const contentType = (doc.contentType || '').toLowerCase();
+  const isJsonHeader = contentType.includes('json') || contentType.includes('+json');
+  const isJsonFileExt = (loc.pathname || '').toLowerCase().endsWith('.json');
+
+  // Case 1: Server explicitly sent JSON content-type header or URL is a .json file
+  if (isJsonHeader || isJsonFileExt) {
+    // In Chrome/Edge/Firefox, raw JSON body is wrapped in a single <pre> or direct text
+    const childCount = doc.body.children.length;
+    const firstChild = doc.body.firstElementChild;
+    const isSinglePreOrJsonDiv = childCount === 1 && (firstChild?.tagName === 'PRE' || firstChild?.id === 'json');
+    const isDirectText = childCount === 0;
+
+    if (isSinglePreOrJsonDiv || isDirectText) {
+      const text = (doc.body.textContent || '').trim();
+      if (text && (text.startsWith('{') || text.startsWith('[') || text.startsWith('"') || text === 'null' || text === 'true' || text === 'false' || !isNaN(Number(text)))) {
+        try {
+          JSON.parse(text);
+          return text;
+        } catch {}
+      }
+    }
+    return null;
+  }
+
+  // Case 2: Document has no JSON header (e.g. text/plain or local file)
+  // MUST strictly verify this is a raw browser document, NOT an HTML website.
+  // HTML websites (e.g. jsonformatter.org, swagger, blogs) have multiple elements, scripts, forms, navs, headers, etc.
+  const childCount = doc.body.children.length;
+  const firstChild = doc.body.firstElementChild;
+  const isSinglePre = childCount === 1 && firstChild?.tagName === 'PRE';
+  const isDirectText = childCount === 0;
+
+  if (isSinglePre || isDirectText) {
+    // Ensure there are no other HTML structure elements in body or head
+    const hasHtmlStructure = doc.querySelector('nav, header, footer, main, form, input, button, select, iframe, script:not([src*="extension"])');
+    if (!hasHtmlStructure) {
+      const text = (doc.body.textContent || '').trim();
+      if (text && (text.startsWith('{') || text.startsWith('['))) {
+        try {
+          JSON.parse(text);
+          return text;
+        } catch {}
+      }
+    }
+  }
+
+  return null;
+}
