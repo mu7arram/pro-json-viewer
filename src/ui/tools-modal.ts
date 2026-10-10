@@ -468,6 +468,10 @@ export function openToolsModal(options: ToolsModalOptions) {
   renderContent();
   backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
+
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  };
 }
 
 function escapeHtml(str: string): string {
