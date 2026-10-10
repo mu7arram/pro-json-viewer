@@ -161,4 +161,29 @@ describe('Dynamic Depth Detection & Contextual Toolbar', () => {
       expect(container.querySelector('#pjv-diag-d5')).toBeNull();
     });
   });
+
+  describe('ToolsModal Backdrop Dismissal', () => {
+    it('closes modal when clicking on the backdrop outside the dialog box', async () => {
+      const { openToolsModal } = await import('../src/ui/tools-modal');
+      openToolsModal({
+        data: { test: 123 },
+        rawText: '{"test": 123}',
+        parseTimeMs: 1
+      });
+
+      const backdrop = document.querySelector('.pjv-modal-backdrop') as HTMLElement;
+      expect(backdrop).not.toBeNull();
+
+      const modal = document.querySelector('.pjv-tools-modal') as HTMLElement;
+      expect(modal).not.toBeNull();
+
+      // Clicking inside the modal dialog box does NOT close it
+      modal.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(document.querySelector('.pjv-modal-backdrop')).not.toBeNull();
+
+      // Clicking on the backdrop (outside modal box) closes it
+      backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(document.querySelector('.pjv-modal-backdrop')).toBeNull();
+    });
+  });
 });

@@ -191,11 +191,34 @@ function extractRawJsonText(): string | null {
   return extractRawJsonFromDocument(document, window.location);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initProJsonViewer);
-} else {
+function startViewerBootstrap() {
   initProJsonViewer();
+  // If Chrome is still streaming or preparing the DOM at DOMContentLoaded, retry briefly
+  if (!document.documentElement.classList.contains('pjv-injected')) {
+    let retries = 0;
+    const interval = setInterval(() => {
+      retries++;
+      if (document.documentElement.classList.contains('pjv-injected') || retries > 10) {
+        clearInterval(interval);
+        return;
+      }
+      initProJsonViewer();
+    }, 100);
+  }
 }
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startViewerBootstrap);
+} else {
+  startViewerBootstrap();
+}
+
+// Fallback on window load in case DOMContentLoaded fired before Chrome injected its native viewer elements
+window.addEventListener('load', () => {
+  if (!document.documentElement.classList.contains('pjv-injected')) {
+    initProJsonViewer();
+  }
+});
 
 // Real-time Storage Listener for Live Theme & Preference Updates
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
@@ -211,5 +234,6 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
     }
   });
 }
+
 
 

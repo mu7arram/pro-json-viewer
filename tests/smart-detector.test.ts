@@ -33,7 +33,11 @@ describe('SmartDetector', () => {
         body: {
           children: [{ tagName: 'PRE' }],
           firstElementChild: { tagName: 'PRE' },
-          textContent: '{"name": "React", "stars": 200000}'
+          textContent: '{"name": "React", "stars": 200000}',
+          querySelector: (selector: string) => {
+            if (selector.includes('pre')) return { textContent: '{"name": "React", "stars": 200000}' };
+            return null;
+          }
         },
         querySelector: () => null
       } as unknown as Document;
@@ -41,6 +45,27 @@ describe('SmartDetector', () => {
       const mockLoc = { pathname: '/users/react/repos' } as Location;
       const res = extractRawJsonFromDocument(mockDoc, mockLoc);
       expect(res).toBe('{"name": "React", "stars": 200000}');
+    });
+
+    it('detects Chrome native JSON viewer with div#json or extra elements in body', () => {
+      const mockDoc = {
+        contentType: 'application/json',
+        body: {
+          children: [{ tagName: 'DIV' }, { tagName: 'STYLE' }, { tagName: 'PRE' }],
+          firstElementChild: { tagName: 'DIV' },
+          textContent: '{"status": "ok", "items": [1, 2]}',
+          querySelector: (selector: string) => {
+            if (selector.includes('div#json')) return { textContent: '{"status": "ok", "items": [1, 2]}' };
+            if (selector.includes('pre')) return { textContent: '{"status": "ok", "items": [1, 2]}' };
+            return null;
+          }
+        },
+        querySelector: () => null
+      } as unknown as Document;
+
+      const mockLoc = { pathname: '/api/v1/health' } as Location;
+      const res = extractRawJsonFromDocument(mockDoc, mockLoc);
+      expect(res).toBe('{"status": "ok", "items": [1, 2]}');
     });
 
     it('detects local or remote .json file', () => {

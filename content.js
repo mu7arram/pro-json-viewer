@@ -5350,6 +5350,10 @@ function openToolsModal(options) {
   renderContent();
   backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
+
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  };
 }
 
 // --- 8.8. KEYBOARD SHORTCUTS CHEATSHEET MODAL & HOTKEY HANDLER ---
@@ -6347,19 +6351,31 @@ function extractRawJsonText() {
 
   // Case 1: Server explicitly sent JSON content-type header or URL is a .json file
   if (isJsonHeader || isJsonFileExt) {
-    const childCount = document.body.children.length;
-    const firstChild = document.body.firstElementChild;
-    const isSinglePreOrJsonDiv = childCount === 1 && (firstChild?.tagName === 'PRE' || firstChild?.id === 'json');
-    const isDirectText = childCount === 0;
+    const preEl = document.body.querySelector('pre');
+    const jsonDivEl = document.body.querySelector('div#json, div.jsonContainer');
 
-    if (isSinglePreOrJsonDiv || isDirectText) {
-      const text = (document.body.textContent || '').trim();
-      if (text && (text.startsWith('{') || text.startsWith('[') || text.startsWith('"') || text === 'null' || text === 'true' || text === 'false' || !isNaN(Number(text)))) {
-        try {
-          JSON.parse(text);
-          return text;
-        } catch (e) {}
-      }
+    let candidateText = '';
+    if (preEl && preEl.textContent) {
+      candidateText = preEl.textContent.trim();
+    } else if (jsonDivEl && jsonDivEl.textContent) {
+      candidateText = jsonDivEl.textContent.trim();
+    } else {
+      candidateText = (document.body.textContent || '').trim();
+    }
+
+    if (candidateText && (
+      candidateText.startsWith('{') ||
+      candidateText.startsWith('[') ||
+      candidateText.startsWith('"') ||
+      candidateText === 'null' ||
+      candidateText === 'true' ||
+      candidateText === 'false' ||
+      !isNaN(Number(candidateText))
+    )) {
+      try {
+        JSON.parse(candidateText);
+        return candidateText;
+      } catch (e) {}
     }
     return null;
   }
@@ -6388,11 +6404,34 @@ function extractRawJsonText() {
   return null;
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initProJsonViewer);
-} else {
+function startViewerBootstrap() {
   initProJsonViewer();
+  // If Chrome is still streaming or preparing the DOM at DOMContentLoaded, retry briefly
+  if (!document.documentElement.classList.contains('pjv-injected')) {
+    let retries = 0;
+    const interval = setInterval(() => {
+      retries++;
+      if (document.documentElement.classList.contains('pjv-injected') || retries > 10) {
+        clearInterval(interval);
+        return;
+      }
+      initProJsonViewer();
+    }, 100);
+  }
 }
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startViewerBootstrap);
+} else {
+  startViewerBootstrap();
+}
+
+// Fallback on window load in case DOMContentLoaded fired before Chrome injected its native viewer elements
+window.addEventListener('load', () => {
+  if (!document.documentElement.classList.contains('pjv-injected')) {
+    initProJsonViewer();
+  }
+});
 
 // Real-time Storage Listener for Live Theme & Preference Updates
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
@@ -6408,4 +6447,5 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
     }
   });
 }
+
 

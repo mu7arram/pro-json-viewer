@@ -155,20 +155,33 @@ export function extractRawJsonFromDocument(doc: Document = document, loc: Locati
 
   // Case 1: Server explicitly sent JSON content-type header or URL is a .json file
   if (isJsonHeader || isJsonFileExt) {
-    // In Chrome/Edge/Firefox, raw JSON body is wrapped in a single <pre> or direct text
-    const childCount = doc.body.children.length;
-    const firstChild = doc.body.firstElementChild;
-    const isSinglePreOrJsonDiv = childCount === 1 && (firstChild?.tagName === 'PRE' || firstChild?.id === 'json');
-    const isDirectText = childCount === 0;
+    // 1a. Chrome Native JSON viewer or standard browser <pre> wrapper
+    // In Chrome 117+, Chrome may render its own UI (div#json, pre, or extra injected elements).
+    const preEl = doc.body.querySelector ? doc.body.querySelector('pre') : doc.querySelector?.('pre');
+    const jsonDivEl = doc.body.querySelector ? doc.body.querySelector('div#json, div.jsonContainer') : doc.querySelector?.('div#json, div.jsonContainer');
+    
+    let candidateText = '';
+    if (preEl && preEl.textContent) {
+      candidateText = preEl.textContent.trim();
+    } else if (jsonDivEl && jsonDivEl.textContent) {
+      candidateText = jsonDivEl.textContent.trim();
+    } else {
+      candidateText = (doc.body.textContent || '').trim();
+    }
 
-    if (isSinglePreOrJsonDiv || isDirectText) {
-      const text = (doc.body.textContent || '').trim();
-      if (text && (text.startsWith('{') || text.startsWith('[') || text.startsWith('"') || text === 'null' || text === 'true' || text === 'false' || !isNaN(Number(text)))) {
-        try {
-          JSON.parse(text);
-          return text;
-        } catch {}
-      }
+    if (candidateText && (
+      candidateText.startsWith('{') ||
+      candidateText.startsWith('[') ||
+      candidateText.startsWith('"') ||
+      candidateText === 'null' ||
+      candidateText === 'true' ||
+      candidateText === 'false' ||
+      !isNaN(Number(candidateText))
+    )) {
+      try {
+        JSON.parse(candidateText);
+        return candidateText;
+      } catch {}
     }
     return null;
   }
