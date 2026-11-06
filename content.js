@@ -725,6 +725,14 @@ class TreeView {
     }
   }
 
+  scrollToNodeId(nodeId) {
+    const idx = this.nodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return;
+    this.selectedNodeId = nodeId;
+    this.scrollToSelected(idx);
+    this.virtualizer.updateView();
+  }
+
   renderRows(visibleNodes, startIndex) {
     const wrapper = this.virtualizer.getContentWrapper();
     wrapper.innerHTML = '';
@@ -737,6 +745,9 @@ class TreeView {
       if (node.diffStatus) rowEl.classList.add(`diff-${node.diffStatus}`);
 
       rowEl.style.height = `${this.settings.virtualRowHeight}px`;
+      if (this.settings.fontSize) {
+        rowEl.style.fontSize = `${this.settings.fontSize}px`;
+      }
 
       if (this.settings.showLineNumbers) {
         const lineNoEl = document.createElement('span');
@@ -1064,6 +1075,9 @@ class Toolbar {
         <div class="pjv-sub-left">
           <div class="pjv-search-box">
             <input type="text" id="pjv-search-input" placeholder="Search keys, values, or JSONPath (e.g. $.users[0])... [/]" />
+            <span id="pjv-search-count" class="pjv-search-count" style="display:none; font-size:11px; color:var(--pjv-text-muted); padding:0 6px; white-space:nowrap;">0 / 0</span>
+            <button class="pjv-btn" id="pjv-search-prev" title="Previous Match (Shift+Enter)" style="display:none; padding:2px 6px;">↑</button>
+            <button class="pjv-btn" id="pjv-search-next" title="Next Match (Enter)" style="display:none; padding:2px 6px;">↓</button>
             <select id="pjv-filter-mode" class="pjv-filter-mode-select">
               <option value="text">Text</option>
               <option value="regex">Regex</option>
@@ -1084,6 +1098,9 @@ class Toolbar {
 
       this.searchInput = sub.querySelector('#pjv-search-input');
       this.filterSelect = sub.querySelector('#pjv-filter-mode');
+      this.searchCountEl = sub.querySelector('#pjv-search-count');
+      this.searchPrevBtn = sub.querySelector('#pjv-search-prev');
+      this.searchNextBtn = sub.querySelector('#pjv-search-next');
 
       let searchDebounceTimer = null;
       const emitSearch = () => {
@@ -1096,6 +1113,23 @@ class Toolbar {
         if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
         searchDebounceTimer = setTimeout(emitSearch, 150);
       };
+      this.searchInput.onkeydown = (e) => {
+        if (e.key === 'Enter' && this.options.onSearchStep) {
+          e.preventDefault();
+          if (searchDebounceTimer) {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = null;
+            emitSearch();
+          }
+          this.options.onSearchStep(e.shiftKey ? 'prev' : 'next');
+        }
+      };
+      this.searchPrevBtn?.addEventListener('click', () => {
+        if (this.options.onSearchStep) this.options.onSearchStep('prev');
+      });
+      this.searchNextBtn?.addEventListener('click', () => {
+        if (this.options.onSearchStep) this.options.onSearchStep('next');
+      });
       this.filterSelect.onchange = () => {
         if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
         emitSearch();
@@ -1179,6 +1213,20 @@ class Toolbar {
       `;
     }
   }
+
+  updateSearchMatchStatus(currentOneBased, totalMatches, hasQuery) {
+    if (!this.searchCountEl || !this.searchPrevBtn || !this.searchNextBtn) return;
+    if (!hasQuery) {
+      this.searchCountEl.style.display = 'none';
+      this.searchPrevBtn.style.display = 'none';
+      this.searchNextBtn.style.display = 'none';
+      return;
+    }
+    this.searchCountEl.style.display = 'inline';
+    this.searchCountEl.textContent = totalMatches > 0 ? `${currentOneBased} / ${totalMatches}` : '0 / 0';
+    this.searchPrevBtn.style.display = totalMatches > 1 ? 'inline-flex' : 'none';
+    this.searchNextBtn.style.display = totalMatches > 1 ? 'inline-flex' : 'none';
+  }
 }
 
 // --- 7.5. TABLE VIEW COMPONENT ---
@@ -1198,7 +1246,7 @@ function extractSummaryMetrics(data, currentPath = '$', results = []) {
   return results;
 }
 
-function formatTabTitle(path, parentObj) {
+function formatTabTitle(path, parentObj, enableQuizHeuristics = true) {
   if (path === 'root') return { label: 'Main Data', icon: '📊' };
   if (path === 'summary') return { label: 'Summary Metrics', icon: '📈' };
 
@@ -1213,15 +1261,17 @@ function formatTabTitle(path, parentObj) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   if (parentObj && typeof parentObj === 'object') {
-    const parentName = parentObj.skill_name || parentObj.name || parentObj.title || parentObj.skill_id;
+    const parentName = enableQuizHeuristics
+      ? (parentObj.skill_name || parentObj.name || parentObj.title || parentObj.skill_id)
+      : (parentObj.name || parentObj.title);
     if (parentName) {
       words = `${words} (${parentName})`;
     }
   }
 
   let icon = '📋';
-  if (lastSegment.includes('question')) icon = '❓';
-  if (lastSegment.includes('skill')) icon = '🎓';
+  if (enableQuizHeuristics && lastSegment.includes('question')) icon = '❓';
+  if (enableQuizHeuristics && lastSegment.includes('skill')) icon = '🎓';
   if (lastSegment.includes('strong') || lastSegment.includes('top')) icon = '🏷️';
   if (lastSegment.includes('weak') || lastSegment.includes('gap')) icon = '⚠️';
   if (lastSegment.includes('department') || lastSegment.includes('map') || lastSegment.includes('org')) icon = '🏢';
@@ -1230,7 +1280,7 @@ function formatTabTitle(path, parentObj) {
   return { label: words, icon };
 }
 
-function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj = null, maxDepth = 20) {
+function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj = null, maxDepth = 20, enableQuizHeuristics = true) {
   if (!data || maxDepth < 0) return results;
 
   if (typeof data === 'string' && (data.trim().startsWith('[') || data.trim().startsWith('{'))) {
@@ -1240,7 +1290,7 @@ function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj
   if (Array.isArray(data)) {
     if (data.length > 0 && typeof data[0] === 'object' && data[0] !== null && !Array.isArray(data[0])) {
       const pathStr = currentPath === '$' ? 'root' : currentPath;
-      const { label, icon } = formatTabTitle(pathStr, parentObj);
+      const { label, icon } = formatTabTitle(pathStr, parentObj, enableQuizHeuristics);
       results.push({
         id: pathStr,
         label,
@@ -1256,7 +1306,7 @@ function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj
         try { parsedItem = JSON.parse(item); } catch (e) {}
       }
       if (typeof parsedItem === 'object' && parsedItem !== null) {
-        findAllArraysOfObjects(parsedItem, `${currentPath}[${idx}]`, results, parsedItem, maxDepth - 1);
+        findAllArraysOfObjects(parsedItem, `${currentPath}[${idx}]`, results, parsedItem, maxDepth - 1, enableQuizHeuristics);
       }
     });
   } else if (typeof data === 'object' && data !== null) {
@@ -1266,7 +1316,7 @@ function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj
         try { val = JSON.parse(val); } catch (e) {}
       }
       const nextPath = currentPath === '$' ? `$.${key}` : `${currentPath}.${key}`;
-      findAllArraysOfObjects(val, nextPath, results, data, maxDepth - 1);
+      findAllArraysOfObjects(val, nextPath, results, data, maxDepth - 1, enableQuizHeuristics);
     });
   }
 
@@ -1279,6 +1329,7 @@ class TableView {
     this.rawData = options.data;
     this.scanDepth = options.scanDepth || 3;
     this.maxDepth = options.maxDepth || 20;
+    this.enableQuizHeuristics = options.enableQuizHeuristics !== false;
     this.onCopyToast = options.onCopyToast;
     this.datasets = [];
     this.activeTabId = '';
@@ -1307,7 +1358,7 @@ class TableView {
       });
     }
 
-    const rawArrays = findAllArraysOfObjects(this.rawData, '$', [], null, this.scanDepth);
+    const rawArrays = findAllArraysOfObjects(this.rawData, '$', [], null, this.scanDepth, this.enableQuizHeuristics);
 
     const seenIds = new Set();
     const uniqueArrays = [];
@@ -1318,36 +1369,38 @@ class TableView {
       }
     });
 
-    const questionDatasets = uniqueArrays.filter((d) => d.id.includes('.questions'));
-    if (questionDatasets.length >= 1) {
-      const allQuestions = [];
-      questionDatasets.forEach((ds) => {
-        const parentMatch = ds.label.match(/\(([^)]+)\)/);
-        const parentName = parentMatch ? parentMatch[1] : '';
+    if (this.enableQuizHeuristics) {
+      const questionDatasets = uniqueArrays.filter((d) => d.id.includes('.questions'));
+      if (questionDatasets.length >= 1) {
+        const allQuestions = [];
+        questionDatasets.forEach((ds) => {
+          const parentMatch = ds.label.match(/\(([^)]+)\)/);
+          const parentName = parentMatch ? parentMatch[1] : '';
 
-        ds.array.forEach((q) => {
-          allQuestions.push({
-            skill: parentName || 'General',
-            ...q
+          ds.array.forEach((q) => {
+            allQuestions.push({
+              skill: parentName || 'General',
+              ...q
+            });
           });
         });
-      });
 
-      this.datasets.push({
-        id: 'all-questions-merged',
-        label: 'All Questions',
-        icon: '❓',
-        type: 'array',
-        array: allQuestions,
-        count: allQuestions.length
-      });
+        this.datasets.push({
+          id: 'all-questions-merged',
+          label: 'All Questions',
+          icon: '❓',
+          type: 'array',
+          array: allQuestions,
+          count: allQuestions.length
+        });
+      }
     }
 
     this.datasets.push(...uniqueArrays);
 
     if (this.datasets.length > 0) {
-      const mergedQuestionsTab = this.datasets.find((d) => d.id === 'all-questions-merged');
-      const questionTab = this.datasets.find((d) => d.id.includes('.questions'));
+      const mergedQuestionsTab = this.enableQuizHeuristics ? this.datasets.find((d) => d.id === 'all-questions-merged') : null;
+      const questionTab = this.enableQuizHeuristics ? this.datasets.find((d) => d.id.includes('.questions')) : null;
       const firstArrayTab = this.datasets.find((d) => d.type === 'array');
 
       this.activeTabId = mergedQuestionsTab
@@ -1711,7 +1764,7 @@ class TableView {
       try { parsedVal = JSON.parse(val); } catch (e) {}
     }
 
-    if (colLower === 'type' && typeof val === 'string') {
+    if (this.enableQuizHeuristics && colLower === 'type' && typeof val === 'string') {
       const safeVal = escapeHtml(val);
       if (val === 'single-choice') return `<span class="pjv-pill pjv-type-single">🟢 ${safeVal}</span>`;
       if (val === 'multiple-choice') return `<span class="pjv-pill pjv-type-multiple">🟣 ${safeVal}</span>`;
@@ -1720,7 +1773,7 @@ class TableView {
       return `<span class="pjv-pill pjv-type-text">⚪ ${safeVal}</span>`;
     }
 
-    if ((colLower === 'questions' || colLower === 'skill_levels') && Array.isArray(parsedVal)) {
+    if (this.enableQuizHeuristics && (colLower === 'questions' || colLower === 'skill_levels') && Array.isArray(parsedVal)) {
       return `<span class="pjv-table-cell-json pjv-table-cell-badge">❓ ${parsedVal.length} ${escapeHtml(colKey)}</span>`;
     }
 
@@ -1731,14 +1784,14 @@ class TableView {
       if (lower === 'high' || lower === 'critical') return `<span class="pjv-pill pjv-pill-high">🔴 ${escapeHtml(val)}</span>`;
     }
 
-    if (colLower === 'expected' && typeof parsedVal === 'object' && parsedVal !== null) {
+    if (this.enableQuizHeuristics && colLower === 'expected' && typeof parsedVal === 'object' && parsedVal !== null) {
       if (parsedVal.correct) {
         const correctVal = Array.isArray(parsedVal.correct) ? parsedVal.correct.join(', ') : parsedVal.correct;
         return `<span class="pjv-pill pjv-type-single pjv-mono">Key: ${escapeHtml(correctVal)}</span>`;
       }
     }
 
-    if (colLower === 'options' && Array.isArray(parsedVal)) {
+    if (this.enableQuizHeuristics && colLower === 'options' && Array.isArray(parsedVal)) {
       const optionDetails = parsedVal.map((o) => `${o.option || '•'}: ${o.text || ''} (${o.score ?? 0}pt)`).join('\n');
       return `<span class="pjv-table-cell-json" title="${escapeHtml(optionDetails)}">📋 ${parsedVal.length} options</span>`;
     }
@@ -3687,7 +3740,15 @@ class DiffView {
     this.onToast = options.onToast;
     this.onApplyToViewer = options.onApplyToViewer;
 
-    this.leftText = this.primaryData !== undefined ? JSON.stringify(this.primaryData, null, 2) : '';
+    if (typeof options.primaryRawText === 'string' && options.primaryRawText.trim()) {
+      try {
+        this.leftText = formatJsonPreservingNumbers(options.primaryRawText, 2);
+      } catch {
+        this.leftText = this.primaryData !== undefined ? JSON.stringify(this.primaryData, null, 2) : '';
+      }
+    } else {
+      this.leftText = this.primaryData !== undefined ? JSON.stringify(this.primaryData, null, 2) : '';
+    }
     this.rightText = this.secondaryData !== undefined ? JSON.stringify(this.secondaryData, null, 2) : '';
 
     this.leftValid = true;
@@ -3854,14 +3915,16 @@ class DiffView {
 
     if (this.leftText.trim()) {
       try {
-        this.leftText = JSON.stringify(JSON.parse(this.leftText), null, 2);
+        JSON.parse(this.leftText);
+        this.leftText = formatJsonPreservingNumbers(this.leftText, 2);
         formattedLeft = true;
       } catch {}
     }
 
     if (this.rightText.trim()) {
       try {
-        this.rightText = JSON.stringify(JSON.parse(this.rightText), null, 2);
+        JSON.parse(this.rightText);
+        this.rightText = formatJsonPreservingNumbers(this.rightText, 2);
         formattedRight = true;
       } catch {}
     }
@@ -3952,8 +4015,9 @@ class DiffView {
     }
     try {
       const parsedData = JSON.parse(this.rightText);
+      const formattedRaw = formatJsonPreservingNumbers(this.rightText, 2);
       if (this.onApplyToViewer) {
-        this.onApplyToViewer(parsedData);
+        this.onApplyToViewer(parsedData, formattedRaw);
       }
       if (this.onToast) this.onToast('✨ Target payload applied to main viewer!');
     } catch (err) {
@@ -6205,6 +6269,7 @@ const DEFAULT_SETTINGS = {
   detectUrls: true,
   detectBase64: true,
   detectSchemaHints: true,
+  enableQuizHeuristics: true,
   autoActivateOnJson: true
 };
 
@@ -6342,6 +6407,8 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
 
     let activeQuery = '';
     let activeMode = 'text';
+    let matchedIdList = [];
+    let activeMatchCursor = 0;
 
     const treeView = new TreeView({
       container: viewportContainer,
@@ -6357,7 +6424,7 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
       onCopyToast: showToast
     });
 
-    const applyRender = () => {
+    const applyRender = (scrollToActiveMatch = false) => {
       if (activeQuery.trim()) {
         if (!fullNodesCache) {
           fullNodesCache = buildFlatNodes(jsonObject, Infinity, new Map(), settings);
@@ -6365,9 +6432,24 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
         const { matchedIds, expandAncestorIds } = searchTree(fullNodesCache, activeQuery, activeMode);
         expandAncestorIds.forEach((id) => expandedStateMap.set(id, true));
         currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap, settings);
+        matchedIdList = currentNodes.filter((n) => matchedIds.has(n.id)).map((n) => n.id);
+        if (activeMatchCursor >= matchedIdList.length) {
+          activeMatchCursor = 0;
+        }
         treeView.setNodes(currentNodes, matchedIds);
+        if (typeof toolbar !== 'undefined') {
+          toolbar.updateSearchMatchStatus(matchedIdList.length > 0 ? activeMatchCursor + 1 : 0, matchedIdList.length, true);
+        }
+        if (scrollToActiveMatch && matchedIdList.length > 0) {
+          treeView.scrollToNodeId(matchedIdList[activeMatchCursor]);
+        }
       } else {
+        matchedIdList = [];
+        activeMatchCursor = 0;
         treeView.setNodes(currentNodes, new Set());
+        if (typeof toolbar !== 'undefined') {
+          toolbar.updateSearchMatchStatus(0, 0, false);
+        }
       }
     };
 
@@ -6455,6 +6537,7 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
             data: jsonObject,
             scanDepth: settings.tableScanDepth || 3,
             maxDepth: parseResult.maxDepth,
+            enableQuizHeuristics: settings.enableQuizHeuristics !== false,
             onCopyToast: showToast
           });
         } else if (mode === 'chart') {
@@ -6480,10 +6563,11 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
           activeSubView = new DiffView({
             container: diffContainer,
             primaryData: jsonObject,
+            primaryRawText: currentJsonText,
             onToast: showToast,
-            onApplyToViewer: (updatedData) => {
+            onApplyToViewer: (updatedData, updatedRawText) => {
               jsonObject = updatedData;
-              currentJsonText = JSON.stringify(jsonObject, null, 2);
+              currentJsonText = updatedRawText || JSON.stringify(jsonObject, null, 2);
               rawContainer.value = currentJsonText;
               rawDirty = false;
               fullNodesCache = null;
@@ -6534,7 +6618,18 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
       onSearchChange: (query, mode) => {
         activeQuery = query;
         activeMode = mode;
-        applyRender();
+        activeMatchCursor = 0;
+        applyRender(true);
+      },
+      onSearchStep: (direction) => {
+        if (matchedIdList.length === 0) return;
+        if (direction === 'next') {
+          activeMatchCursor = (activeMatchCursor + 1) % matchedIdList.length;
+        } else {
+          activeMatchCursor = (activeMatchCursor - 1 + matchedIdList.length) % matchedIdList.length;
+        }
+        toolbar.updateSearchMatchStatus(activeMatchCursor + 1, matchedIdList.length, true);
+        treeView.scrollToNodeId(matchedIdList[activeMatchCursor]);
       },
       onExpandDepth: (depth) => {
         expandedStateMap.clear();

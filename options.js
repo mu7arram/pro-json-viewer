@@ -12,6 +12,7 @@
     detectUrls: true,
     detectBase64: true,
     detectSchemaHints: true,
+    enableQuizHeuristics: true,
     autoActivateOnJson: true
   };
 
@@ -64,11 +65,14 @@
     const depthSelect = document.getElementById('opt-depth');
     const scanDepthSelect = document.getElementById('opt-scan-depth');
     const lineNoCheckbox = document.getElementById('opt-line-numbers');
+    const fontSizeInput = document.getElementById('opt-font-size');
+    const indentSizeInput = document.getElementById('opt-indent-size');
     const jwtCheckbox = document.getElementById('opt-detect-jwt');
     const datesCheckbox = document.getElementById('opt-detect-dates');
     const urlsCheckbox = document.getElementById('opt-detect-urls');
     const base64Checkbox = document.getElementById('opt-detect-base64');
     const schemaCheckbox = document.getElementById('opt-detect-schema');
+    const quizHeuristicsCheckbox = document.getElementById('opt-quiz-heuristics');
     const saveBtn = document.getElementById('opt-save-btn');
     const saveToast = document.getElementById('opt-save-toast');
 
@@ -154,11 +158,14 @@
       };
     }
     lineNoCheckbox.checked = settings.showLineNumbers;
+    if (fontSizeInput) fontSizeInput.value = String(settings.fontSize || 13);
+    if (indentSizeInput) indentSizeInput.value = String(settings.indentSize || 18);
     jwtCheckbox.checked = settings.detectJwt;
     datesCheckbox.checked = settings.detectDates;
     if (urlsCheckbox) urlsCheckbox.checked = settings.detectUrls;
     if (base64Checkbox) base64Checkbox.checked = settings.detectBase64;
     schemaCheckbox.checked = settings.detectSchemaHints;
+    if (quizHeuristicsCheckbox) quizHeuristicsCheckbox.checked = settings.enableQuizHeuristics !== false;
 
     const flashSaveToast = (msg = '✓ Settings Saved!') => {
       if (saveToast) {
@@ -188,11 +195,14 @@
         defaultExpandDepth: Number(depthSelect.value),
         tableScanDepth: scanDepthSelect ? Number(scanDepthSelect.value) : 3,
         showLineNumbers: lineNoCheckbox.checked,
+        fontSize: fontSizeInput ? Math.max(10, Math.min(22, Number(fontSizeInput.value) || 13)) : settings.fontSize,
+        indentSize: indentSizeInput ? Math.max(8, Math.min(40, Number(indentSizeInput.value) || 18)) : settings.indentSize,
         detectJwt: jwtCheckbox.checked,
         detectDates: datesCheckbox.checked,
         detectUrls: urlsCheckbox ? urlsCheckbox.checked : settings.detectUrls,
         detectBase64: base64Checkbox ? base64Checkbox.checked : settings.detectBase64,
-        detectSchemaHints: schemaCheckbox.checked
+        detectSchemaHints: schemaCheckbox.checked,
+        enableQuizHeuristics: quizHeuristicsCheckbox ? quizHeuristicsCheckbox.checked : settings.enableQuizHeuristics
       });
 
       saveBtn.disabled = false;

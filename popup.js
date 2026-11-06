@@ -12,6 +12,7 @@
     detectUrls: true,
     detectBase64: true,
     detectSchemaHints: true,
+    enableQuizHeuristics: true,
     autoActivateOnJson: true
   };
 
