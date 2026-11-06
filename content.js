@@ -6738,6 +6738,10 @@ window.addEventListener('load', () => {
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'local' && changes.pro_json_settings) {
+      const isExtensionPage = window.location.protocol === 'chrome-extension:' || window.location.protocol === 'moz-extension:';
+      if (!document.documentElement.classList.contains('pjv-injected') && !isExtensionPage) {
+        return;
+      }
       const newSettings = changes.pro_json_settings.newValue;
       if (newSettings && newSettings.theme) {
         const theme = newSettings.theme;
