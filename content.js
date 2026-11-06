@@ -35,10 +35,15 @@ function fallbackCopy(text) {
 }
 
 // --- 1. SMART VALUE DETECTOR ---
-function detectSmartValue(value) {
+function detectSmartValue(value, settings) {
   if (value === null || value === undefined) return null;
 
-  if (typeof value === 'number' || (typeof value === 'string' && /^\d{10,13}$/.test(value))) {
+  const allowDates = !settings || settings.detectDates !== false;
+  const allowUrls = !settings || settings.detectUrls !== false;
+  const allowJwt = !settings || settings.detectJwt !== false;
+  const allowBase64 = !settings || settings.detectBase64 !== false;
+
+  if (allowDates && (typeof value === 'number' || (typeof value === 'string' && /^\d{10,13}$/.test(value)))) {
     const num = typeof value === 'number' ? value : Number(value);
     if (!isNaN(num)) {
       const ms = num < 10000000000 ? num * 1000 : num;
@@ -60,7 +65,7 @@ function detectSmartValue(value) {
   const str = value.trim();
   if (!str) return null;
 
-  if (/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(str)) {
+  if (allowUrls && /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(str)) {
     return {
       type: 'url',
       raw: str,
@@ -69,7 +74,7 @@ function detectSmartValue(value) {
     };
   }
 
-  if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/i.test(str)) {
+  if (allowDates && /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/i.test(str)) {
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
       return {
@@ -81,7 +86,7 @@ function detectSmartValue(value) {
     }
   }
 
-  if (/^eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(str)) {
+  if (allowJwt && /^eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(str)) {
     try {
       const parts = str.split('.');
       const decodeBase64Url = (part) => {
@@ -102,7 +107,7 @@ function detectSmartValue(value) {
     } catch (e) {}
   }
 
-  if (str.length >= 16 && str.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(str)) {
+  if (allowBase64 && str.length >= 16 && str.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(str)) {
     try {
       const decoded = atob(str);
       if (/^[\x20-\x7E\s]+$/.test(decoded)) {
@@ -183,23 +188,129 @@ function parseJson(raw) {
   }
 }
 
-function buildFlatNodes(data, defaultExpandDepth = 2, expandedStateMap = new Map()) {
-  const result = [];
+function tokenizeJsonText(raw) {
+  let source = raw;
+  try {
+    JSON.parse(source);
+  } catch (err) {
+    const repaired = raw
+      .replace(/,\s*([\]}])/g, '$1')
+      .replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, '"$1"');
+    JSON.parse(repaired);
+    source = repaired;
+  }
 
-  function traverse(value, key, parentId, depth, pathSegments) {
+  const tokens = [];
+  let i = 0;
+  const len = source.length;
+  while (i < len) {
+    const ch = source[i];
+    if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n') {
+      i++;
+      continue;
+    }
+    if (ch === '{' || ch === '}' || ch === '[' || ch === ']' || ch === ':' || ch === ',') {
+      tokens.push({ type: 'punct', value: ch });
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      let start = i;
+      i++;
+      while (i < len) {
+        if (source[i] === '\\') {
+          i += 2;
+        } else if (source[i] === '"') {
+          i++;
+          break;
+        } else {
+          i++;
+        }
+      }
+      tokens.push({ type: 'literal', value: source.slice(start, i) });
+      continue;
+    }
+    let start = i;
+    while (
+      i < len &&
+      source[i] !== ' ' &&
+      source[i] !== '\t' &&
+      source[i] !== '\r' &&
+      source[i] !== '\n' &&
+      source[i] !== '{' &&
+      source[i] !== '}' &&
+      source[i] !== '[' &&
+      source[i] !== ']' &&
+      source[i] !== ':' &&
+      source[i] !== ','
+    ) {
+      i++;
+    }
+    tokens.push({ type: 'literal', value: source.slice(start, i) });
+  }
+  return tokens;
+}
+
+function formatJsonPreservingNumbers(raw, indentSpaces = 2) {
+  const tokens = tokenizeJsonText(raw);
+  const indentUnit = ' '.repeat(indentSpaces);
+  let out = '';
+  let depth = 0;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    const next = tokens[i + 1];
+
+    if (tok.type === 'punct') {
+      if (tok.value === '{' || tok.value === '[') {
+        const closeMatch = tok.value === '{' ? '}' : ']';
+        if (next && next.type === 'punct' && next.value === closeMatch) {
+          out += tok.value + closeMatch;
+          i++;
+        } else {
+          depth++;
+          out += tok.value + '\n' + indentUnit.repeat(depth);
+        }
+      } else if (tok.value === '}' || tok.value === ']') {
+        depth = Math.max(0, depth - 1);
+        out += '\n' + indentUnit.repeat(depth) + tok.value;
+      } else if (tok.value === ':') {
+        out += ': ';
+      } else if (tok.value === ',') {
+        out += ',\n' + indentUnit.repeat(depth);
+      }
+    } else {
+      out += tok.value;
+    }
+  }
+  return out;
+}
+
+function minifyJsonPreservingNumbers(raw) {
+  const tokens = tokenizeJsonText(raw);
+  let out = '';
+  for (let i = 0; i < tokens.length; i++) {
+    out += tokens[i].value;
+  }
+  return out;
+}
+
+function formatJsonPathSegment(seg) {
+  if (seg.type === 'index') return `[${seg.key}]`;
+  const k = String(seg.key);
+  return /^[A-Za-z_$][\w$]*$/.test(k) ? `.${k}` : `[${JSON.stringify(k)}]`;
+}
+
+function buildFlatNodes(data, defaultExpandDepth = 2, expandedStateMap = new Map(), settings) {
+  const result = [];
+  const allowSchemaHints = !settings || settings.detectSchemaHints !== false;
+
+  function traverse(value, key, parentId, depth, pathSegments, currentPath) {
     const type = getNodeType(value);
     const hasChildren = type === 'object' || type === 'array';
-    
-    let currentId = 'root';
-    let path = '$';
 
-    if (pathSegments.length > 0) {
-      const segParts = pathSegments.map((seg) =>
-        seg.type === 'index' ? `[${seg.key}]` : `.${seg.key}`
-      );
-      path = `$${segParts.join('')}`;
-      currentId = pathSegments.map((s) => s.key).join('.');
-    }
+    const path = currentPath;
+    const currentId = path;
 
     let childCount = 0;
     if (type === 'array') childCount = value.length;
@@ -210,7 +321,7 @@ function buildFlatNodes(data, defaultExpandDepth = 2, expandedStateMap = new Map
       isExpanded = expandedStateMap.get(currentId);
     }
 
-    const smart = !hasChildren ? detectSmartValue(value) : null;
+    const smart = !hasChildren ? detectSmartValue(value, settings) : null;
 
     const node = {
       id: currentId,
@@ -231,14 +342,15 @@ function buildFlatNodes(data, defaultExpandDepth = 2, expandedStateMap = new Map
 
     if (hasChildren && isExpanded) {
       if (type === 'array') {
-        const anomalies = detectSchemaAnomalies(value);
+        const anomalies = allowSchemaHints ? detectSchemaAnomalies(value) : new Set();
         value.forEach((item, idx) => {
           const seg = { key: idx, type: 'index' };
+          const childPath = `${path}[${idx}]`;
           const isAnomaly = anomalies.has(idx);
-          traverse(item, idx, currentId, depth + 1, [...pathSegments, seg]);
+          const childIndex = result.length;
+          traverse(item, idx, currentId, depth + 1, [...pathSegments, seg], childPath);
           if (isAnomaly) {
-            const childNodeId = [...pathSegments, seg].map((s) => s.key).join('.');
-            const childNode = result.find((n) => n.id === childNodeId);
+            const childNode = result[childIndex];
             if (childNode) {
               childNode.smart = {
                 type: 'schema_anomaly',
@@ -252,13 +364,14 @@ function buildFlatNodes(data, defaultExpandDepth = 2, expandedStateMap = new Map
       } else if (type === 'object' && value !== null) {
         Object.keys(value).forEach((k) => {
           const seg = { key: k, type: 'property' };
-          traverse(value[k], k, currentId, depth + 1, [...pathSegments, seg]);
+          const childPath = `${path}${formatJsonPathSegment(seg)}`;
+          traverse(value[k], k, currentId, depth + 1, [...pathSegments, seg], childPath);
         });
       }
     }
   }
 
-  traverse(data, null, null, 1, []);
+  traverse(data, null, null, 1, [], '$');
   return result;
 }
 
@@ -268,13 +381,14 @@ function searchTree(nodes, query, mode = 'text') {
   const expandAncestorIds = new Set();
   if (!query.trim()) return { matchedIds, expandAncestorIds };
 
+  const byId = new Map(nodes.map((n) => [n.id, n]));
   const trimmed = query.trim();
   if (mode === 'jsonpath') {
     const pathLower = trimmed.toLowerCase();
     nodes.forEach((node) => {
       if (node.path.toLowerCase().includes(pathLower)) {
         matchedIds.add(node.id);
-        markAncestors(node, nodes, expandAncestorIds);
+        markAncestors(node, byId, expandAncestorIds);
       }
     });
     return { matchedIds, expandAncestorIds };
@@ -306,18 +420,18 @@ function searchTree(nodes, query, mode = 'text') {
 
     if (matchKey || matchVal) {
       matchedIds.add(node.id);
-      markAncestors(node, nodes, expandAncestorIds);
+      markAncestors(node, byId, expandAncestorIds);
     }
   });
 
   return { matchedIds, expandAncestorIds };
 }
 
-function markAncestors(node, allNodes, ancestorIds) {
+function markAncestors(node, byId, ancestorIds) {
   let currentParentId = node.parentId;
-  while (currentParentId) {
+  while (currentParentId && !ancestorIds.has(currentParentId)) {
     ancestorIds.add(currentParentId);
-    const parentNode = allNodes.find((n) => n.id === currentParentId);
+    const parentNode = byId instanceof Map ? byId.get(currentParentId) : byId.find((n) => n.id === currentParentId);
     if (parentNode) currentParentId = parentNode.parentId;
     else break;
   }
@@ -453,6 +567,79 @@ class Virtualizer {
 }
 
 // --- 6. TREE VIEW CONTROLLER ---
+function showSmartBadgePopover(anchorEl, smart, onToast) {
+  const existing = document.querySelector('.pjv-smart-popover');
+  if (existing) existing.remove();
+
+  const popover = document.createElement('div');
+  popover.className = 'pjv-smart-popover';
+  popover.style.cssText = `
+    position: fixed;
+    z-index: 2147483647;
+    max-width: 460px;
+    max-height: 320px;
+    overflow: auto;
+    background: var(--pjv-bg-badge, #1e293b);
+    color: var(--pjv-text-main, #f8fafc);
+    border: 1px solid var(--pjv-border-color, #334155);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    font-family: var(--pjv-font-mono, monospace);
+    font-size: 12px;
+  `;
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-weight: 700;';
+  const titleSpan = document.createElement('span');
+  titleSpan.textContent = smart.badge || smart.type.toUpperCase();
+  const actionsWrap = document.createElement('div');
+  actionsWrap.style.cssText = 'display: flex; gap: 6px;';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'pjv-btn';
+  copyBtn.style.cssText = 'padding: 2px 8px; font-size: 11px;';
+  copyBtn.textContent = '📋 Copy';
+  copyBtn.onclick = (e) => {
+    e.stopPropagation();
+    copyToClipboard(smart.formatted || smart.raw);
+    if (onToast) onToast(`Copied ${smart.badge || smart.type} preview!`);
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'pjv-btn';
+  closeBtn.style.cssText = 'padding: 2px 8px; font-size: 11px;';
+  closeBtn.textContent = '✕';
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    popover.remove();
+  };
+
+  actionsWrap.append(copyBtn, closeBtn);
+  header.append(titleSpan, actionsWrap);
+
+  const pre = document.createElement('pre');
+  pre.style.cssText = 'margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 11.5px; line-height: 1.45;';
+  pre.textContent = smart.formatted || smart.raw;
+
+  popover.append(header, pre);
+  document.body.appendChild(popover);
+
+  const rect = anchorEl.getBoundingClientRect();
+  const top = Math.min(window.innerHeight - popover.offsetHeight - 12, rect.bottom + 6);
+  const left = Math.min(window.innerWidth - popover.offsetWidth - 12, Math.max(12, rect.left));
+  popover.style.top = `${Math.max(12, top)}px`;
+  popover.style.left = `${left}px`;
+
+  const onOutsideClick = (e) => {
+    if (!popover.contains(e.target) && e.target !== anchorEl) {
+      popover.remove();
+      document.removeEventListener('mousedown', onOutsideClick, true);
+    }
+  };
+  document.addEventListener('mousedown', onOutsideClick, true);
+}
+
 class TreeView {
   constructor(options) {
     this.container = options.container;
@@ -514,6 +701,7 @@ class TreeView {
           }
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'c' && this.selectedNodeId) {
+        if (window.getSelection()?.toString()) return;
         const selectedNode = this.nodes.find((n) => n.id === this.selectedNodeId);
         if (selectedNode) {
           e.preventDefault();
@@ -634,7 +822,7 @@ class TreeView {
         } else {
           badgeEl.onclick = (e) => {
             e.stopPropagation();
-            alert(`${node.smart.badge}:\n\n${node.smart.formatted}`);
+            showSmartBadgePopover(badgeEl, node.smart, this.onCopyToast);
           };
         }
         rowEl.appendChild(badgeEl);
@@ -697,24 +885,6 @@ class TreeView {
       hoverActions.appendChild(copyPathBtn);
 
       rowEl.appendChild(hoverActions);
-
-      rowEl.oncontextmenu = (e) => {
-        e.preventDefault();
-        const copyChoice = prompt(`Action for ${node.path}:\n1. Copy Value\n2. Copy Key\n3. Copy JSONPath`, '1');
-        if (copyChoice === '1') {
-          const valStr = node.hasChildren ? JSON.stringify(node.value) : String(node.value);
-          copyToClipboard(valStr);
-          const snippet = valStr.length > 25 ? valStr.substring(0, 25) + '...' : valStr;
-          this.onCopyToast(`Copied value "${snippet}"`);
-        } else if (copyChoice === '2' && node.key !== null) {
-          const keyStr = String(node.key);
-          copyToClipboard(keyStr);
-          this.onCopyToast(`Copied key "${keyStr}"`);
-        } else if (copyChoice === '3') {
-          copyToClipboard(node.path);
-          this.onCopyToast(`Copied path ${node.path}`);
-        }
-      };
 
       wrapper.appendChild(rowEl);
     });
@@ -808,7 +978,7 @@ class Toolbar {
 
         <!-- Payload Stats & Privacy Badge -->
         <div class="pjv-toolbar-badges">
-          ${this.options.statsSummary ? `<div class="pjv-badge-stats" id="pjv-badge-stats" title="Click to view full payload stats & schema">${this.options.statsSummary}</div>` : ''}
+          ${this.options.statsSummary ? `<div class="pjv-badge-stats" id="pjv-badge-stats" title="Click to view full payload stats & schema">${escapeHtml(this.options.statsSummary)}</div>` : ''}
           <div class="pjv-badge-local" title="All processing occurs 100% locally in your browser. No telemetry or network calls.">
             <span>🔒</span> 100% Local
           </div>
@@ -915,14 +1085,21 @@ class Toolbar {
       this.searchInput = sub.querySelector('#pjv-search-input');
       this.filterSelect = sub.querySelector('#pjv-filter-mode');
 
+      let searchDebounceTimer = null;
       const emitSearch = () => {
         if (this.searchInput && this.filterSelect) {
           this.options.onSearchChange(this.searchInput.value, this.filterSelect.value);
         }
       };
 
-      this.searchInput.oninput = emitSearch;
-      this.filterSelect.onchange = emitSearch;
+      this.searchInput.oninput = () => {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(emitSearch, 150);
+      };
+      this.filterSelect.onchange = () => {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        emitSearch();
+      };
 
       for (let d = 1; d <= maxButtons; d++) {
         const btn = sub.querySelector(`#pjv-btn-depth-${d}`);
@@ -1225,11 +1402,14 @@ class TableView {
     this.datasets.forEach((dataset) => {
       const tabBtn = document.createElement('button');
       tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
-      tabBtn.innerHTML = `
-        <span>${dataset.icon}</span>
-        <span>${dataset.label}</span>
-        <span class="pjv-tab-badge">${dataset.count}</span>
-      `;
+      const iconSpan = document.createElement('span');
+      iconSpan.textContent = dataset.icon;
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = dataset.label;
+      const countSpan = document.createElement('span');
+      countSpan.className = 'pjv-tab-badge';
+      countSpan.textContent = String(dataset.count);
+      tabBtn.append(iconSpan, labelSpan, countSpan);
       tabBtn.onclick = () => {
         this.activeTabId = dataset.id;
         this.loadActiveTab();
@@ -1246,10 +1426,12 @@ class TableView {
     const activeDataset = this.datasets.find((d) => d.id === this.activeTabId);
     const meta = document.createElement('div');
     meta.className = 'pjv-table-meta';
-    meta.innerHTML = `
-      <span>${activeDataset.icon} ${activeDataset.label}</span>
-      <span class="pjv-badge-count">${this.getFilteredRows().length} / ${this.currentArray.length} items</span>
-    `;
+    const metaTitle = document.createElement('span');
+    metaTitle.textContent = `${activeDataset.icon} ${activeDataset.label}`;
+    const metaCount = document.createElement('span');
+    metaCount.className = 'pjv-badge-count';
+    metaCount.textContent = `${this.getFilteredRows().length} / ${this.currentArray.length} items`;
+    meta.append(metaTitle, metaCount);
 
     const controls = document.createElement('div');
     controls.className = 'pjv-table-controls';
@@ -1403,7 +1585,11 @@ class TableView {
 
     this.columns.forEach((col) => {
       const th = document.createElement('th');
-      th.innerHTML = `${col} <span class="sort-icon">${this.sortColumn === col ? (this.sortAsc ? '▲' : '▼') : '↕'}</span>`;
+      const colText = document.createTextNode(`${col} `);
+      const sortSpan = document.createElement('span');
+      sortSpan.className = 'sort-icon';
+      sortSpan.textContent = this.sortColumn === col ? (this.sortAsc ? '▲' : '▼') : '↕';
+      th.append(colText, sortSpan);
       if (this.sortColumn === col) th.classList.add('sorted');
 
       th.onclick = () => {
@@ -1526,34 +1712,35 @@ class TableView {
     }
 
     if (colLower === 'type' && typeof val === 'string') {
-      if (val === 'single-choice') return `<span class="pjv-pill pjv-type-single">🟢 ${val}</span>`;
-      if (val === 'multiple-choice') return `<span class="pjv-pill pjv-type-multiple">🟣 ${val}</span>`;
-      if (val === 'dropdown') return `<span class="pjv-pill pjv-type-dropdown">🔵 ${val}</span>`;
-      if (val === 'ranking') return `<span class="pjv-pill pjv-type-ranking">🟡 ${val}</span>`;
-      return `<span class="pjv-pill pjv-type-text">⚪ ${val}</span>`;
+      const safeVal = escapeHtml(val);
+      if (val === 'single-choice') return `<span class="pjv-pill pjv-type-single">🟢 ${safeVal}</span>`;
+      if (val === 'multiple-choice') return `<span class="pjv-pill pjv-type-multiple">🟣 ${safeVal}</span>`;
+      if (val === 'dropdown') return `<span class="pjv-pill pjv-type-dropdown">🔵 ${safeVal}</span>`;
+      if (val === 'ranking') return `<span class="pjv-pill pjv-type-ranking">🟡 ${safeVal}</span>`;
+      return `<span class="pjv-pill pjv-type-text">⚪ ${safeVal}</span>`;
     }
 
     if ((colLower === 'questions' || colLower === 'skill_levels') && Array.isArray(parsedVal)) {
-      return `<span class="pjv-table-cell-json pjv-table-cell-badge">❓ ${parsedVal.length} ${colKey}</span>`;
+      return `<span class="pjv-table-cell-json pjv-table-cell-badge">❓ ${parsedVal.length} ${escapeHtml(colKey)}</span>`;
     }
 
     if (typeof val === 'string') {
       const lower = val.toLowerCase();
       if (lower === 'low') return `<span class="pjv-pill pjv-pill-low">🟢 Low</span>`;
       if (lower === 'medium') return `<span class="pjv-pill pjv-pill-medium">🟠 Medium</span>`;
-      if (lower === 'high' || lower === 'critical') return `<span class="pjv-pill pjv-pill-high">🔴 ${val}</span>`;
+      if (lower === 'high' || lower === 'critical') return `<span class="pjv-pill pjv-pill-high">🔴 ${escapeHtml(val)}</span>`;
     }
 
     if (colLower === 'expected' && typeof parsedVal === 'object' && parsedVal !== null) {
       if (parsedVal.correct) {
         const correctVal = Array.isArray(parsedVal.correct) ? parsedVal.correct.join(', ') : parsedVal.correct;
-        return `<span class="pjv-pill pjv-type-single pjv-mono">Key: ${correctVal}</span>`;
+        return `<span class="pjv-pill pjv-type-single pjv-mono">Key: ${escapeHtml(correctVal)}</span>`;
       }
     }
 
     if (colLower === 'options' && Array.isArray(parsedVal)) {
       const optionDetails = parsedVal.map((o) => `${o.option || '•'}: ${o.text || ''} (${o.score ?? 0}pt)`).join('\n');
-      return `<span class="pjv-table-cell-json" title="${this.escapeHtml(optionDetails)}">📋 ${parsedVal.length} options</span>`;
+      return `<span class="pjv-table-cell-json" title="${escapeHtml(optionDetails)}">📋 ${parsedVal.length} options</span>`;
     }
 
     const isProgressCol = colLower.includes('percentage') || colLower.includes('progress') || colLower.includes('coverage');
@@ -1575,7 +1762,7 @@ class TableView {
     }
 
     if (typeof val === 'string') {
-      const escaped = this.escapeHtml(val);
+      const escaped = escapeHtml(val);
       const isArabic = /[\u0600-\u06FF]/.test(val);
       if (isArabic) {
         return `<span class="pjv-cell-rtl" dir="rtl">${escaped}</span>`;
@@ -1584,15 +1771,7 @@ class TableView {
     }
 
     const jsonStr = JSON.stringify(val);
-    return `<span class="pjv-table-cell-json">${this.escapeHtml(jsonStr)}</span>`;
-  }
-
-  escapeHtml(str) {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    return `<span class="pjv-table-cell-json">${escapeHtml(jsonStr)}</span>`;
   }
 
   exportCsv() {
@@ -1623,6 +1802,8 @@ class TableView {
 
     if (this.onCopyToast) this.onCopyToast('Exported CSV file!');
   }
+
+  destroy() {}
 }
 
 // --- 7.6. CHART VIEW COMPONENT ---
@@ -1943,11 +2124,14 @@ class ChartView {
         const tabBtn = document.createElement('button');
         tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
         const countLabel = dataset.array ? dataset.array.length : (dataset.breakdown ? dataset.breakdown.length : (dataset.kpis ? dataset.kpis.length : 0));
-        tabBtn.innerHTML = `
-          <span>${dataset.icon}</span>
-          <span>${dataset.label}</span>
-          <span class="pjv-tab-badge">${countLabel}</span>
-        `;
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = dataset.icon;
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = dataset.label;
+        const countSpan = document.createElement('span');
+        countSpan.className = 'pjv-tab-badge';
+        countSpan.textContent = String(countLabel);
+        tabBtn.append(iconSpan, labelSpan, countSpan);
         tabBtn.onclick = () => {
           this.activeTabId = dataset.id;
           this.configureTabDefaults();
@@ -2198,8 +2382,8 @@ class ChartView {
         const card = document.createElement('div');
         card.className = 'pjv-chart-kpi-card';
         card.innerHTML = `
-          <div class="pjv-kpi-label">${this.escapeHtml(kpi.label)}</div>
-          <div class="pjv-kpi-val">${kpi.value}</div>
+          <div class="pjv-kpi-label">${escapeHtml(kpi.label)}</div>
+          <div class="pjv-kpi-val">${escapeHtml(kpi.value)}</div>
         `;
         kpiGrid.appendChild(card);
       });
@@ -2212,7 +2396,7 @@ class ChartView {
       const card = document.createElement('div');
       card.className = 'pjv-chart-card';
       card.innerHTML = `
-        <div class="pjv-chart-title">${dataset.icon} ${this.escapeHtml(dataset.label)}</div>
+        <div class="pjv-chart-title">${escapeHtml(dataset.icon)} ${escapeHtml(dataset.label)}</div>
         <div class="pjv-donut-wrapper">
           ${this.renderSvgDonut(dataset.breakdown)}
           ${this.renderLegend(dataset.breakdown)}
@@ -2251,8 +2435,8 @@ class ChartView {
       card.className = 'pjv-chart-card';
 
       const chartTitle = this.aggregationMode === 'count'
-        ? `📋 ${this.escapeHtml(dataset.label)} — Count by ${this.escapeHtml(labelKey)}`
-        : `📊 ${this.escapeHtml(dataset.label)} — ${this.escapeHtml(this.selectedValueKey)}`;
+        ? `📋 ${escapeHtml(dataset.label)} — Count by ${escapeHtml(labelKey)}`
+        : `📊 ${escapeHtml(dataset.label)} — ${escapeHtml(this.selectedValueKey)}`;
 
       if (this.selectedChartType === 'donut') {
         card.innerHTML = `
@@ -2296,12 +2480,12 @@ class ChartView {
         <div class="pjv-summary-stat-badge">
           <span class="stat-title">🟢 Maximum</span>
           <span class="stat-val">${formatNumericValue(maxItem.value)}</span>
-          <span class="stat-sub" title="${this.escapeHtml(maxItem.label)}">${this.escapeHtml(maxItem.label)}</span>
+          <span class="stat-sub" title="${escapeHtml(maxItem.label)}">${escapeHtml(maxItem.label)}</span>
         </div>
         <div class="pjv-summary-stat-badge">
           <span class="stat-title">🔴 Minimum</span>
           <span class="stat-val">${formatNumericValue(minItem.value)}</span>
-          <span class="stat-sub" title="${this.escapeHtml(minItem.label)}">${this.escapeHtml(minItem.label)}</span>
+          <span class="stat-sub" title="${escapeHtml(minItem.label)}">${escapeHtml(minItem.label)}</span>
         </div>
         <div class="pjv-summary-stat-badge">
           <span class="stat-title">📐 Average</span>
@@ -2343,7 +2527,7 @@ class ChartView {
           stroke-dashoffset="${dashOffset}"
           class="pjv-donut-slice"
         >
-          <title>${this.escapeHtml(slice.label)}: ${formatNumericValue(slice.value)} (${(pct * 100).toFixed(1)}%)</title>
+          <title>${escapeHtml(slice.label)}: ${formatNumericValue(slice.value)} (${(pct * 100).toFixed(1)}%)</title>
         </circle>
       `;
     }).join('');
@@ -2374,7 +2558,7 @@ class ChartView {
             <svg width="10" height="10" viewBox="0 0 10 10" class="pjv-legend-dot-svg">
               <circle cx="5" cy="5" r="5" fill="${color}" />
             </svg>
-            <span>${this.escapeHtml(slice.label)}</span>
+            <span>${escapeHtml(slice.label)}</span>
           </div>
           <div class="pjv-legend-val">${formatNumericValue(slice.value)} (${pct}%)</div>
         </div>
@@ -2404,7 +2588,7 @@ class ChartView {
         const x = startX + i * (barW + gap);
         const y = chartH - barH + 20;
         const formattedVal = formatNumericValue(item.value);
-        const label = this.escapeHtml(item.label);
+        const label = escapeHtml(item.label);
         const shortLabel = label.length > 10 ? label.substring(0, 9) + '…' : label;
 
         return `
@@ -2445,7 +2629,7 @@ class ChartView {
       const barW = Math.max(6, (item.value / maxVal) * maxBarW);
       const y = i * rowH + 8;
       const formattedVal = formatNumericValue(item.value);
-      const label = this.escapeHtml(item.label);
+      const label = escapeHtml(item.label);
       const shortLabel = label.length > 36 ? label.substring(0, 34) + '…' : label;
 
       return `
@@ -2472,14 +2656,6 @@ class ChartView {
         </svg>
       </div>
     `;
-  }
-
-  escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
   }
 
   getActiveChartItems(dataset) {
@@ -2575,7 +2751,7 @@ class ChartView {
         return `
           <g transform="translate(380, ${rowY})">
             <rect x="0" y="0" width="12" height="12" rx="3" fill="${color}" />
-            <text x="20" y="10" fill="${textMain}" font-size="11" font-family="-apple-system, sans-serif" font-weight="500">${this.escapeHtml(truncate(slice.label, 22))}</text>
+            <text x="20" y="10" fill="${textMain}" font-size="11" font-family="-apple-system, sans-serif" font-weight="500">${escapeHtml(truncate(slice.label, 22))}</text>
             <text x="360" y="10" fill="${textMuted}" font-size="11" font-family="monospace" text-anchor="end">${formatNumericValue(slice.value)} (${pct}%)</text>
           </g>
         `;
@@ -2611,7 +2787,7 @@ class ChartView {
           <g>
             <text x="${barX + barWidth / 2}" y="${barY - 8}" fill="${color}" font-size="10.5" font-weight="700" font-family="monospace" text-anchor="middle">${formatNumericValue(item.value)}</text>
             <rect x="${barX}" y="${barY}" width="${barWidth}" height="${barHeight}" rx="5" ry="5" fill="${color}" />
-            <text x="${barX + barWidth / 2}" y="${plotY + plotH + 18}" fill="${textMuted}" font-size="10" font-family="-apple-system, sans-serif" text-anchor="middle">${this.escapeHtml(truncate(item.label, 10))}</text>
+            <text x="${barX + barWidth / 2}" y="${plotY + plotH + 18}" fill="${textMuted}" font-size="10" font-family="-apple-system, sans-serif" text-anchor="middle">${escapeHtml(truncate(item.label, 10))}</text>
           </g>
         `;
       }).join('\n      ');
@@ -2636,7 +2812,7 @@ class ChartView {
 
         return `
           <g transform="translate(${plotX}, ${rowY})">
-            <text x="0" y="10" fill="${textMain}" font-size="11" font-weight="500" font-family="-apple-system, sans-serif">${this.escapeHtml(truncate(item.label, 26))}</text>
+            <text x="0" y="10" fill="${textMain}" font-size="11" font-weight="500" font-family="-apple-system, sans-serif">${escapeHtml(truncate(item.label, 26))}</text>
             <text x="700" y="10" fill="${color}" font-size="11" font-weight="700" font-family="monospace" text-anchor="end">${formatNumericValue(item.value)}</text>
             <rect x="0" y="16" width="700" height="10" rx="5" fill="${borderColor}" />
             <rect x="0" y="16" width="${barW}" height="10" rx="5" fill="${color}" />
@@ -2676,7 +2852,7 @@ class ChartView {
     const svgString = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" rx="12" fill="${bgCard}" stroke="${borderColor}" stroke-width="1.5" />
-  <text x="${padding}" y="45" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">${this.escapeHtml(title)}</text>
+  <text x="${padding}" y="45" fill="${syntaxKey}" font-size="16" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">${escapeHtml(title)}</text>
   <line x1="${padding}" y1="62" x2="${width - padding}" y2="62" stroke="${borderColor}" stroke-width="1" />
   ${chartContentSvg}
   ${summarySvg}
@@ -2803,6 +2979,8 @@ class ChartView {
 
     img.src = blobUrl;
   }
+
+  destroy() {}
 }
 
 // --- 7.7. INTERACTIVE DIAGRAM & VISUAL GRAPH VIEW ---
@@ -2813,6 +2991,7 @@ class DiagramView {
     this.currentDepth = options.defaultDepth || 2;
     this.maxDepth = options.maxDepth || 3;
     this.onToast = options.onToast;
+    this.abortController = new AbortController();
 
     this.rootNode = null;
     this.orientation = 'horizontal';
@@ -2839,7 +3018,7 @@ class DiagramView {
   }
 
   initGraph() {
-    this.rootNode = this.buildNode(this.rawData, 'root', 1, 'root');
+    this.rootNode = this.buildNode(this.rawData, 'root', 1, '$');
   }
 
   buildNode(value, key, depth, id) {
@@ -2868,7 +3047,7 @@ class DiagramView {
       valueSummary = `{ ${keys.length} keys }`;
       keys.forEach((k) => {
         const val = value[k];
-        const childId = `${id}.${k}`;
+        const childId = `${id}${formatJsonPathSegment({ key: k, type: 'property' })}`;
         if (typeof val === 'object' && val !== null) {
           children.push(this.buildNode(val, k, depth + 1, childId));
         } else {
@@ -3119,7 +3298,7 @@ class DiagramView {
             <span class="pjv-node-badge ${node.type}">${typeBadge}</span>
             <span class="pjv-node-key" title="${escapeHtml(node.key)}">${escapeHtml(node.key)}</span>
           </div>
-          <span class="pjv-node-count">${node.valueSummary}</span>
+          <span class="pjv-node-count">${escapeHtml(node.valueSummary)}</span>
         </div>
         ${propsHtml}
         ${hasChildren ? `
@@ -3193,19 +3372,21 @@ class DiagramView {
       viewport.style.cursor = 'grabbing';
     });
 
+    const signal = this.abortController.signal;
+
     window.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
       this.panX = e.clientX - this.startDragX;
       this.panY = e.clientY - this.startDragY;
       this.updateCanvasTransform(canvas);
-    });
+    }, { signal });
 
     window.addEventListener('mouseup', () => {
       if (this.isDragging) {
         this.isDragging = false;
         viewport.style.cursor = 'grab';
       }
-    });
+    }, { signal });
 
     viewport.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -3488,6 +3669,12 @@ class DiagramView {
     };
 
     img.src = blobUrl;
+  }
+
+  destroy() {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
   }
 }
 
@@ -4145,7 +4332,7 @@ class DiffView {
         if (filteredNodes.length === 0) {
           treeContent.innerHTML = `
             <div class="pjv-diff-empty">
-              <strong>No diff items match filter "${this.diffFilter}"</strong>
+              <strong>No diff items match filter "${escapeHtml(this.diffFilter)}"</strong>
             </div>
           `;
         } else {
@@ -4245,6 +4432,13 @@ class DiffView {
       }
     });
   }
+
+  destroy() {
+    if (this.autoDiffTimer) {
+      clearTimeout(this.autoDiffTimer);
+      this.autoDiffTimer = null;
+    }
+  }
 }
 
 // --- 8.5. DEVELOPER TOOLS & SCHEMA GENERATOR SUITE ---
@@ -4259,7 +4453,8 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function formatByteSize(bytes) {
@@ -4461,10 +4656,15 @@ function jsonToYaml(data, indentLevel = 0) {
   if (typeof data === 'number') return String(data);
 
   if (typeof data === 'string') {
+    if (data === '') return '""';
     if (data.includes('\n')) {
       return `|\n${data.split('\n').map((line) => `${indent}  ${line}`).join('\n')}`;
     }
-    if (/[:#\[\]{},&*?|<>=!%@`]|^[0-9]/.test(data) || data === 'true' || data === 'false' || data === 'null') {
+    if (
+      /[:#\[\]{},&*?|<>=!%@`]|^[0-9]|^\s|\s$|^-\s|^-$/.test(data) ||
+      /^(true|false|null|~|yes|no|on|off|y|n)$/i.test(data) ||
+      !isNaN(Number(data))
+    ) {
       return JSON.stringify(data);
     }
     return data;
@@ -4889,6 +5089,7 @@ function downloadFile(filename, content, mimeType) {
 }
 
 function openToolsModal(options) {
+  if (document.querySelector('.pjv-modal-backdrop')) return;
   const { data, rawText = '', parseTimeMs = 0, onToast, initialTab = 'ts' } = options;
 
   const backdrop = document.createElement('div');
@@ -5011,8 +5212,15 @@ function openToolsModal(options) {
       };
 
     } else if (activeTab === 'export') {
-      const prettyJson = JSON.stringify(data, null, 2);
-      const minJson = JSON.stringify(data);
+      let prettyJson;
+      let minJson;
+      try {
+        prettyJson = rawText ? formatJsonPreservingNumbers(rawText, 2) : JSON.stringify(data, null, 2);
+        minJson = rawText ? minifyJsonPreservingNumbers(rawText) : JSON.stringify(data);
+      } catch {
+        prettyJson = JSON.stringify(data, null, 2);
+        minJson = JSON.stringify(data);
+      }
       const yamlStr = jsonToYaml(data);
       const csvStr = jsonToCsv(data);
 
@@ -5464,9 +5672,9 @@ function registerKeyboardShortcuts(handlers) {
         document.activeElement.tagName === 'TEXTAREA' ||
         document.activeElement.isContentEditable);
 
-    // Escape closes any active modals
+    // Escape closes any active modals or popovers
     if (e.key === 'Escape') {
-      const activeBackdrop = document.querySelector('.pjv-modal-backdrop');
+      const activeBackdrop = document.querySelector('.pjv-modal-backdrop, .pjv-shortcuts-backdrop, .pjv-smart-popover');
       if (activeBackdrop) {
         activeBackdrop.remove();
         e.preventDefault();
@@ -5514,6 +5722,9 @@ function registerKeyboardShortcuts(handlers) {
       handlers.onFocusSearch();
       return;
     }
+
+    // Do not hijack browser shortcuts (Cmd/Ctrl/Alt + key) with single-letter commands
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     // Expand All / Collapse All
     if (e.key === 'e' || e.key === 'E') {
@@ -5569,7 +5780,7 @@ class ProgressLoader {
         </div>
 
         <div class="pjv-progress-footer">
-          <span class="pjv-progress-details" id="pjv-progress-details">\${formattedInitial ? 'Payload: ' + formattedInitial : 'Off-thread background processing'}</span>
+          <span class="pjv-progress-details" id="pjv-progress-details">${formattedInitial ? 'Payload: ' + formattedInitial : 'Off-thread background processing'}</span>
           <span class="pjv-progress-percent" id="pjv-progress-percent">5%</span>
         </div>
       </div>
@@ -5627,7 +5838,8 @@ const WORKER_SCRIPT_CONTENT = `
 
     if (type === 'PARSE_PAYLOAD') {
       const rawText = data.rawText;
-      const defaultExpandDepth = data.defaultExpandDepth || 2;
+      const defaultExpandDepth = data.defaultExpandDepth ?? 2;
+      const settings = data.settings || {};
       const totalBytes = rawText.length;
 
       self.postMessage({
@@ -5723,30 +5935,53 @@ const WORKER_SCRIPT_CONTENT = `
 
       function detectSmart(val) {
         if (typeof val === 'string') {
-          if (/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/.test(val)) {
+          if (settings.detectDates !== false && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/.test(val)) {
             return { type: 'date', raw: val, formatted: new Date(val).toLocaleString(), badge: '📅 Date' };
           }
-          if (val.startsWith('http://') || val.startsWith('https://')) {
+          if (settings.detectUrls !== false && (val.startsWith('http://') || val.startsWith('https://'))) {
             return { type: 'url', raw: val, badge: '🔗 URL' };
           }
-          if (/^[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$/.test(val) && val.length > 24) {
+          if (settings.detectJwt !== false && /^[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$/.test(val) && val.length > 24) {
             return { type: 'jwt', raw: val, badge: '🔑 JWT' };
+          }
+          if (
+            settings.detectBase64 !== false &&
+            val.length >= 24 &&
+            val.length <= 2048 &&
+            val.length % 4 === 0 &&
+            !/\\s/.test(val) &&
+            /^[A-Za-z0-9+/]+={1,2}$/.test(val)
+          ) {
+            return { type: 'base64', raw: val, badge: '🧬 Base64' };
+          }
+        }
+        if (settings.detectDates !== false && typeof val === 'number' && Number.isInteger(val)) {
+          if (val >= 946684800 && val <= 4102444800) {
+            return { type: 'epoch', raw: val, formatted: new Date(val * 1000).toLocaleString(), badge: '⏱️ Epoch' };
+          }
+          if (val >= 946684800000 && val <= 4102444800000) {
+            return { type: 'epoch', raw: val, formatted: new Date(val).toLocaleString(), badge: '⏱️ Epoch (ms)' };
           }
         }
         return null;
+      }
+
+      function formatSeg(s) {
+        if (s.type === 'index') return '[' + s.key + ']';
+        const k = String(s.key);
+        return /^[A-Za-z_$][\\w$]*$/.test(k) ? '.' + k : '[' + JSON.stringify(k) + ']';
       }
 
       function traverse(val, key, parentId, depth, pathSegments) {
         const type = getNodeType(val);
         const hasChildren = type === 'object' || type === 'array';
 
-        let currentId = 'root';
+        let currentId = '$';
         let path = '$';
 
         if (pathSegments.length > 0) {
-          const segParts = pathSegments.map(s => s.type === 'index' ? '[' + s.key + ']' : '.' + s.key);
-          path = '$' + segParts.join('');
-          currentId = pathSegments.map(s => s.key).join('.');
+          path = '$' + pathSegments.map(formatSeg).join('');
+          currentId = path;
         }
 
         let childCount = 0;
@@ -5845,13 +6080,13 @@ function getContentWorker() {
   }
 }
 
-async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedStateMap, onProgress) {
+async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedStateMap, onProgress, settings) {
   const runSyncFallback = () => {
     const startTime = performance.now();
     const jsonObject = parseJson(rawJsonText);
     const parseTimeMs = Math.round(performance.now() - startTime);
     const stats = analyzePayloadStats(rawJsonText, jsonObject, parseTimeMs);
-    const flatNodes = buildFlatNodes(jsonObject, defaultExpandDepth, expandedStateMap || new Map());
+    const flatNodes = buildFlatNodes(jsonObject, defaultExpandDepth, expandedStateMap || new Map(), settings);
     return {
       jsonObject,
       flatNodes,
@@ -5872,29 +6107,43 @@ async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedState
     return runSyncFallback();
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let resolved = false;
+    let startupTimer = null;
+    let hardTimeoutTimer = null;
 
     const cleanup = () => {
       worker.removeEventListener('message', messageHandler);
       worker.removeEventListener('error', errorHandler);
-      if (fallbackTimer) clearTimeout(fallbackTimer);
+      if (startupTimer) clearTimeout(startupTimer);
+      if (hardTimeoutTimer) clearTimeout(hardTimeoutTimer);
     };
 
-    const finishWithSync = () => {
+    const finishWithSync = (markCspBlocked) => {
       if (resolved) return;
       resolved = true;
       cleanup();
-      isContentWorkerBlockedByCsp = true;
-      if (contentWorkerInstance) {
-        try { contentWorkerInstance.terminate(); } catch {}
-        contentWorkerInstance = null;
+      if (markCspBlocked) {
+        isContentWorkerBlockedByCsp = true;
+        if (contentWorkerInstance) {
+          try { contentWorkerInstance.terminate(); } catch {}
+          contentWorkerInstance = null;
+        }
       }
-      resolve(runSyncFallback());
+      try {
+        resolve(runSyncFallback());
+      } catch (err) {
+        reject(err);
+      }
     };
 
     const messageHandler = (e) => {
       if (resolved) return;
+      // Worker is alive and not blocked by CSP; cancel the startup probe timer
+      if (startupTimer) {
+        clearTimeout(startupTimer);
+        startupTimer = null;
+      }
       const { type, payload } = e.data || {};
       if (type === 'PROGRESS') {
         if (onProgress) onProgress(payload);
@@ -5903,20 +6152,27 @@ async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedState
         cleanup();
         resolve(payload);
       } else if (type === 'ERROR') {
-        finishWithSync();
+        finishWithSync(false);
       }
     };
 
     const errorHandler = () => {
-      finishWithSync();
+      finishWithSync(true);
     };
 
-    // If CSP silently prevents worker execution, fallback after 500ms
-    const fallbackTimer = setTimeout(() => {
+    // Only treat the worker as CSP-blocked if it sends no initial message within 500ms
+    startupTimer = setTimeout(() => {
       if (!resolved) {
-        finishWithSync();
+        finishWithSync(true);
       }
     }, 500);
+
+    // Hard safety timeout (60s) for huge payloads
+    hardTimeoutTimer = setTimeout(() => {
+      if (!resolved) {
+        finishWithSync(false);
+      }
+    }, 60000);
 
     worker.addEventListener('message', messageHandler);
     worker.addEventListener('error', errorHandler);
@@ -5926,10 +6182,11 @@ async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedState
         type: 'PARSE_PAYLOAD',
         rawText: rawJsonText,
         defaultExpandDepth,
+        settings,
         expandedEntries: expandedStateMap ? Array.from(expandedStateMap.entries()) : []
       });
     } catch {
-      finishWithSync();
+      finishWithSync(true);
     }
   });
 }
@@ -5938,6 +6195,7 @@ async function parseJsonAsync(rawJsonText, defaultExpandDepth = 2, expandedState
 const DEFAULT_SETTINGS = {
   theme: 'system',
   defaultExpandDepth: 2,
+  tableScanDepth: 3,
   fontSize: 13,
   indentSize: 18,
   showLineNumbers: true,
@@ -5965,19 +6223,17 @@ window.launchProJsonScratchpad = async (container) => {
   let sampleJsonStr = `{\n  "status": "success",\n  "code": 200,\n  "data": {\n    "user": {\n      "id": 1024,\n      "name": "Jane Doe",\n      "email": "jane.doe@example.com",\n      "created_at": "2026-08-08T21:00:00Z",\n      "timestamp": 1770000000,\n      "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"\n    },\n    "items": [\n      { "id": 1, "title": "Widget A", "price": 29.99 },\n      { "id": 2, "title": "Widget B", "price": 49.99 }\n    ]\n  }\n}`;
 
   if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-    const { pjv_scratchpad_json } = await chrome.storage.local.get('pjv_scratchpad_json');
-    if (pjv_scratchpad_json) sampleJsonStr = pjv_scratchpad_json;
+    try {
+      const { pjv_scratchpad_json } = await chrome.storage.local.get('pjv_scratchpad_json');
+      if (pjv_scratchpad_json) sampleJsonStr = pjv_scratchpad_json;
+    } catch {}
   }
 
-  renderApp(container, sampleJsonStr);
+  await renderApp(container, sampleJsonStr, { isScratchpad: true });
 };
 
-async function renderApp(mountTarget, rawJsonText) {
-  const settings = await getSettings();
-
-  document.documentElement.setAttribute('data-theme', settings.theme === 'system'
-    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : settings.theme);
+async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
+  const settings = appOptions.initialSettings || await getSettings();
 
   let loader = null;
   if (rawJsonText.length > 1.5 * 1024 * 1024) {
@@ -5993,19 +6249,43 @@ async function renderApp(mountTarget, rawJsonText) {
       expandedStateMap,
       (progress) => {
         if (loader) loader.update(progress);
-      }
+      },
+      settings
     );
   } catch (err) {
     if (loader) loader.remove();
-    console.error('Pro JSON Viewer parse error:', err);
-    return;
+    if (!appOptions.isPageBootstrap) {
+      console.error('Pro JSON Viewer parse error:', err);
+    }
+    return false;
   }
 
   if (loader) loader.remove();
 
+  // Only mutate document/body once JSON parsing has succeeded
+  document.documentElement.setAttribute('data-theme', settings.theme === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : settings.theme);
+
+  if (appOptions.isPageBootstrap) {
+    if (!document.querySelector('link[data-pjv-theme]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = chrome.runtime.getURL('theme.css');
+      link.setAttribute('data-pjv-theme', 'true');
+      (document.head || document.documentElement).appendChild(link);
+    }
+    document.documentElement.classList.add('pjv-injected');
+    document.body.classList.add('pjv-injected');
+    mountTarget.innerHTML = '';
+  }
+
   let jsonObject = parseResult.jsonObject;
   let currentJsonText = rawJsonText;
   let currentNodes = parseResult.flatNodes;
+  let fullNodesCache = null;
+  let rawDirty = false;
+  let activeSubView = null;
   const parseTimeMs = parseResult.parseTimeMs || 0;
   const statsSummary = `📦 ${parseResult.formattedSize} • D${parseResult.maxDepth} • ${parseResult.totalKeys} keys`;
 
@@ -6018,8 +6298,15 @@ async function renderApp(mountTarget, rawJsonText) {
 
     const rawContainer = document.createElement('textarea');
     rawContainer.className = 'pjv-raw-textarea';
-    rawContainer.value = JSON.stringify(jsonObject, null, 2);
+    try {
+      rawContainer.value = formatJsonPreservingNumbers(currentJsonText, 2);
+    } catch {
+      rawContainer.value = JSON.stringify(jsonObject, null, 2);
+    }
     rawContainer.style.display = 'none';
+    rawContainer.addEventListener('input', () => {
+      rawDirty = true;
+    });
 
     const tableContainer = document.createElement('div');
     tableContainer.style.display = 'none';
@@ -6055,7 +6342,6 @@ async function renderApp(mountTarget, rawJsonText) {
 
     let activeQuery = '';
     let activeMode = 'text';
-    let tableView = null;
 
     const treeView = new TreeView({
       container: viewportContainer,
@@ -6064,7 +6350,7 @@ async function renderApp(mountTarget, rawJsonText) {
         const node = currentNodes.find((n) => n.id === nodeId);
         if (node) {
           expandedStateMap.set(nodeId, !node.isExpanded);
-          currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+          currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap, settings);
           applyRender();
         }
       },
@@ -6072,31 +6358,39 @@ async function renderApp(mountTarget, rawJsonText) {
     });
 
     const applyRender = () => {
-      const { matchedIds, expandAncestorIds } = searchTree(currentNodes, activeQuery, activeMode);
       if (activeQuery.trim()) {
+        if (!fullNodesCache) {
+          fullNodesCache = buildFlatNodes(jsonObject, Infinity, new Map(), settings);
+        }
+        const { matchedIds, expandAncestorIds } = searchTree(fullNodesCache, activeQuery, activeMode);
         expandAncestorIds.forEach((id) => expandedStateMap.set(id, true));
-        currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+        currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap, settings);
+        treeView.setNodes(currentNodes, matchedIds);
+      } else {
+        treeView.setNodes(currentNodes, new Set());
       }
-      treeView.setNodes(currentNodes, matchedIds);
     };
 
     const syncRawToData = () => {
+      if (!rawDirty) return;
       const rawVal = rawContainer.value.trim();
-      if (rawVal && rawVal !== currentJsonText) {
+      if (rawVal) {
         try {
           const updated = JSON.parse(rawVal);
+          rawDirty = false;
           jsonObject = updated;
           currentJsonText = rawContainer.value;
+          fullNodesCache = null;
           expandedStateMap.clear();
-          currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+          currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap, settings);
           applyRender();
 
           const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
           toolbar.updateMaxDepth(stats.maxDepth);
           toolbar.updateStatsSummary(`📦 ${stats.formattedSize} • D${stats.maxDepth} • ${stats.totalKeys} keys`);
 
-          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.set({ pjv_scratchpad_json: currentJsonText });
+          if (appOptions.isScratchpad && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ pjv_scratchpad_json: currentJsonText }).catch(() => {});
           }
           showToast('Updated view from Raw JSON!');
         } catch (err) {
@@ -6106,6 +6400,22 @@ async function renderApp(mountTarget, rawJsonText) {
     };
 
     rawContainer.addEventListener('blur', syncRawToData);
+
+    const handleOpenDiff = () => {
+      syncRawToData();
+      toolbar.setViewMode('diff');
+    };
+
+    const handleOpenTools = (initialTab) => {
+      syncRawToData();
+      openToolsModal({
+        data: jsonObject,
+        rawText: currentJsonText,
+        parseTimeMs,
+        onToast: showToast,
+        initialTab
+      });
+    };
 
     const toolbar = new Toolbar({
       container: toolbarContainer,
@@ -6126,6 +6436,11 @@ async function renderApp(mountTarget, rawJsonText) {
       onViewModeChange: (mode) => {
         syncRawToData();
 
+        if (activeSubView && typeof activeSubView.destroy === 'function') {
+          activeSubView.destroy();
+          activeSubView = null;
+        }
+
         viewportContainer.style.display = mode === 'tree' ? 'block' : 'none';
         rawContainer.style.display = mode === 'raw' ? 'block' : 'none';
         tableContainer.style.display = mode === 'table' ? 'block' : 'none';
@@ -6135,7 +6450,7 @@ async function renderApp(mountTarget, rawJsonText) {
 
         if (mode === 'table') {
           tableContainer.innerHTML = '';
-          tableView = new TableView({
+          activeSubView = new TableView({
             container: tableContainer,
             data: jsonObject,
             scanDepth: settings.tableScanDepth || 3,
@@ -6144,7 +6459,7 @@ async function renderApp(mountTarget, rawJsonText) {
           });
         } else if (mode === 'chart') {
           chartContainer.innerHTML = '';
-          new ChartView({
+          activeSubView = new ChartView({
             container: chartContainer,
             data: jsonObject,
             scanDepth: settings.tableScanDepth || 3,
@@ -6153,7 +6468,7 @@ async function renderApp(mountTarget, rawJsonText) {
           });
         } else if (mode === 'diagram') {
           diagramContainer.innerHTML = '';
-          new DiagramView({
+          activeSubView = new DiagramView({
             container: diagramContainer,
             data: jsonObject,
             defaultDepth: settings.defaultExpandDepth || 2,
@@ -6162,7 +6477,7 @@ async function renderApp(mountTarget, rawJsonText) {
           });
         } else if (mode === 'diff') {
           diffContainer.innerHTML = '';
-          new DiffView({
+          activeSubView = new DiffView({
             container: diffContainer,
             primaryData: jsonObject,
             onToast: showToast,
@@ -6170,8 +6485,10 @@ async function renderApp(mountTarget, rawJsonText) {
               jsonObject = updatedData;
               currentJsonText = JSON.stringify(jsonObject, null, 2);
               rawContainer.value = currentJsonText;
+              rawDirty = false;
+              fullNodesCache = null;
               expandedStateMap.clear();
-              currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap);
+              currentNodes = buildFlatNodes(jsonObject, settings.defaultExpandDepth, expandedStateMap, settings);
               applyRender();
 
               const stats = analyzePayloadStats(currentJsonText, jsonObject, parseTimeMs);
@@ -6191,8 +6508,9 @@ async function renderApp(mountTarget, rawJsonText) {
       },
       onRawFormat: () => {
         try {
-          const obj = JSON.parse(rawContainer.value);
-          rawContainer.value = JSON.stringify(obj, null, 2);
+          JSON.parse(rawContainer.value);
+          rawContainer.value = formatJsonPreservingNumbers(rawContainer.value, 2);
+          rawDirty = true;
           showToast('✨ Formatted JSON with 2-space indentation');
         } catch (err) {
           showToast(`⚠️ Syntax error: ${err.message}`);
@@ -6200,8 +6518,9 @@ async function renderApp(mountTarget, rawJsonText) {
       },
       onRawMinify: () => {
         try {
-          const obj = JSON.parse(rawContainer.value);
-          rawContainer.value = JSON.stringify(obj);
+          JSON.parse(rawContainer.value);
+          rawContainer.value = minifyJsonPreservingNumbers(rawContainer.value);
+          rawDirty = true;
           showToast('📦 Minified JSON to compact single-line');
         } catch (err) {
           showToast(`⚠️ Syntax error: ${err.message}`);
@@ -6219,41 +6538,41 @@ async function renderApp(mountTarget, rawJsonText) {
       },
       onExpandDepth: (depth) => {
         expandedStateMap.clear();
-        currentNodes = buildFlatNodes(jsonObject, depth, expandedStateMap);
+        currentNodes = buildFlatNodes(jsonObject, depth, expandedStateMap, settings);
         applyRender();
       },
       onCollapseAll: () => {
         expandedStateMap.clear();
-        currentNodes = buildFlatNodes(jsonObject, 0, expandedStateMap);
+        currentNodes = buildFlatNodes(jsonObject, 0, expandedStateMap, settings);
         applyRender();
       },
       onExpandAll: () => {
         expandedStateMap.clear();
-        currentNodes = buildFlatNodes(jsonObject, 100, expandedStateMap);
+        currentNodes = buildFlatNodes(jsonObject, 100, expandedStateMap, settings);
         applyRender();
       },
       onCopyAll: () => {
-        copyToClipboard(JSON.stringify(jsonObject, null, 2));
+        let formatted;
+        try {
+          formatted = formatJsonPreservingNumbers(currentJsonText, 2);
+        } catch {
+          formatted = JSON.stringify(jsonObject, null, 2);
+        }
+        copyToClipboard(formatted);
         showToast('Copied JSON!');
       },
       onDownload: () => {
-        downloadFile(`pro-json-${Date.now()}.json`, JSON.stringify(jsonObject, null, 2), 'application/json');
+        let formatted;
+        try {
+          formatted = formatJsonPreservingNumbers(currentJsonText, 2);
+        } catch {
+          formatted = JSON.stringify(jsonObject, null, 2);
+        }
+        downloadFile(`pro-json-${Date.now()}.json`, formatted, 'application/json');
         showToast('Saved JSON file!');
       },
-      onOpenDiff: () => {
-        syncRawToData();
-        toolbar.setViewMode('diff');
-      },
-      onOpenTools: (initialTab) => {
-        syncRawToData();
-        openToolsModal({
-          data: jsonObject,
-          rawText: currentJsonText,
-          parseTimeMs,
-          onToast: showToast,
-          initialTab
-        });
-      },
+      onOpenDiff: handleOpenDiff,
+      onOpenTools: handleOpenTools,
       onOpenShortcuts: () => {
         openShortcutsModal();
       },
@@ -6276,70 +6595,67 @@ async function renderApp(mountTarget, rawJsonText) {
       },
       onExpandAll: () => {
         expandedStateMap.clear();
-        currentNodes = buildFlatNodes(jsonObject, 100, expandedStateMap);
+        currentNodes = buildFlatNodes(jsonObject, 100, expandedStateMap, settings);
         applyRender();
         showToast('Expanded All');
       },
       onCollapseAll: () => {
         expandedStateMap.clear();
-        currentNodes = buildFlatNodes(jsonObject, 0, expandedStateMap);
+        currentNodes = buildFlatNodes(jsonObject, 0, expandedStateMap, settings);
         applyRender();
         showToast('Collapsed All');
       },
-      onOpenDiff: () => {
-        toolbar.setViewMode('diff');
-      },
-      onOpenTools: () => {
-        openToolsModal({
-          data: jsonObject,
-          rawText: rawJsonText,
-          parseTimeMs,
-          onToast: showToast
-        });
-      }
+      onOpenDiff: handleOpenDiff,
+      onOpenTools: () => handleOpenTools()
     });
 
     applyRender();
+    return true;
 }
 
-function initProJsonViewer() {
+let bootState = 'idle'; // 'idle' | 'pending' | 'done' | 'skipped'
+
+async function initProJsonViewer() {
+  if (bootState !== 'idle') return;
   if (typeof chrome === 'undefined' || !chrome.runtime) return;
   if (window.location.protocol === 'chrome-extension:' || window.location.protocol === 'moz-extension:') return;
 
-  if (document.body && document.body.classList.contains('pjv-injected')) return;
+  if (document.body && document.body.classList.contains('pjv-injected')) {
+    bootState = 'done';
+    return;
+  }
 
   const rawText = extractRawJsonText();
   if (!rawText) return;
 
-  // Fast structural check for small documents
-  if (rawText.length < 500000) {
-    try {
-      JSON.parse(rawText);
-    } catch (err) {
-      try {
-        parseJson(rawText);
-      } catch {
-        return;
-      }
-    }
+  bootState = 'pending';
+
+  const settings = await getSettings();
+  if (!settings.autoActivateOnJson) {
+    bootState = 'skipped';
+    return;
   }
 
-  getSettings().then((settings) => {
-    if (!settings.autoActivateOnJson) return;
-
-    // Inject stylesheet
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = chrome.runtime.getURL('theme.css');
-    document.head.appendChild(link);
-
-    // Setup viewport
-    document.documentElement.classList.add('pjv-injected');
-    document.body.classList.add('pjv-injected');
-    document.body.innerHTML = '';
-    
-    renderApp(document.body, rawText);
+  const ok = await renderApp(document.body, rawText, {
+    isPageBootstrap: true,
+    initialSettings: settings
   });
+  bootState = ok ? 'done' : 'skipped';
+}
+
+function looksLikeJsonDocument(text, allowPrimitives) {
+  if (!text) return false;
+  const first = text[0];
+  const last = text[text.length - 1];
+  if ((first === '{' && last === '}') || (first === '[' && last === ']')) {
+    return true;
+  }
+  if (allowPrimitives) {
+    if (first === '"' && last === '"' && text.length >= 2) return true;
+    if (text === 'null' || text === 'true' || text === 'false') return true;
+    if (text.length < 64 && !isNaN(Number(text))) return true;
+  }
+  return false;
 }
 
 function extractRawJsonText() {
@@ -6363,26 +6679,14 @@ function extractRawJsonText() {
       candidateText = (document.body.textContent || '').trim();
     }
 
-    if (candidateText && (
-      candidateText.startsWith('{') ||
-      candidateText.startsWith('[') ||
-      candidateText.startsWith('"') ||
-      candidateText === 'null' ||
-      candidateText === 'true' ||
-      candidateText === 'false' ||
-      !isNaN(Number(candidateText))
-    )) {
-      try {
-        JSON.parse(candidateText);
-        return candidateText;
-      } catch (e) {}
+    if (looksLikeJsonDocument(candidateText, true)) {
+      return candidateText;
     }
     return null;
   }
 
   // Case 2: Document has no JSON header (e.g. text/plain or local file)
   // MUST strictly verify this is a raw browser document, NOT an HTML website.
-  // HTML websites (e.g. jsonformatter.org, swagger, blogs) have multiple elements, scripts, forms, navs, headers, etc.
   const childCount = document.body.children.length;
   const firstChild = document.body.firstElementChild;
   const isSinglePre = childCount === 1 && firstChild?.tagName === 'PRE';
@@ -6392,11 +6696,8 @@ function extractRawJsonText() {
     const hasHtmlStructure = document.querySelector('nav, header, footer, main, form, input, button, select, iframe, script:not([src*="extension"])');
     if (!hasHtmlStructure) {
       const text = (document.body.textContent || '').trim();
-      if (text && (text.startsWith('{') || text.startsWith('['))) {
-        try {
-          JSON.parse(text);
-          return text;
-        } catch (e) {}
+      if (looksLikeJsonDocument(text, false)) {
+        return text;
       }
     }
   }
@@ -6407,11 +6708,11 @@ function extractRawJsonText() {
 function startViewerBootstrap() {
   initProJsonViewer();
   // If Chrome is still streaming or preparing the DOM at DOMContentLoaded, retry briefly
-  if (!document.documentElement.classList.contains('pjv-injected')) {
+  if (bootState === 'idle' && !document.documentElement.classList.contains('pjv-injected')) {
     let retries = 0;
     const interval = setInterval(() => {
       retries++;
-      if (document.documentElement.classList.contains('pjv-injected') || retries > 10) {
+      if (bootState !== 'idle' || document.documentElement.classList.contains('pjv-injected') || retries > 10) {
         clearInterval(interval);
         return;
       }
@@ -6428,7 +6729,7 @@ if (document.readyState === 'loading') {
 
 // Fallback on window load in case DOMContentLoaded fired before Chrome injected its native viewer elements
 window.addEventListener('load', () => {
-  if (!document.documentElement.classList.contains('pjv-injected')) {
+  if (bootState === 'idle' && !document.documentElement.classList.contains('pjv-injected')) {
     initProJsonViewer();
   }
 });
@@ -6447,5 +6748,6 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
     }
   });
 }
+
 
 

@@ -2,6 +2,7 @@
   const DEFAULT_SETTINGS = {
     theme: 'system',
     defaultExpandDepth: 2,
+    tableScanDepth: 3,
     fontSize: 13,
     indentSize: 18,
     showLineNumbers: true,

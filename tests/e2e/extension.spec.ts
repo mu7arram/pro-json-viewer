@@ -138,4 +138,65 @@ test.describe('Pro JSON Viewer E2E Browser Test Suite', () => {
     const modal = page.locator('.pjv-modal');
     await expect(modal).toBeVisible({ timeout: 5000 });
   });
+
+  test('neutralizes XSS payloads across Table, Chart, and Diagram views', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html#scratchpad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.pjv-root')).toBeVisible({ timeout: 10000 });
+
+    const xssPayload = JSON.stringify({
+      '<img src=x onerror="window.__xss=1">': [
+        {
+          '<img src=x onerror="window.__xss=2">': '<img src=x onerror="window.__xss=3">',
+          skill_name: '<img src=x onerror="window.__xss=4">',
+          type: '<img src=x onerror="window.__xss=5">',
+          expected: { correct: '<img src=x onerror="window.__xss=6">' },
+          score: 42
+        }
+      ]
+    });
+
+    // Switch to Raw, enter XSS payload, and switch across views
+    await page.click('button:has-text("📝 Raw")');
+    const rawTextarea = page.locator('.pjv-raw-textarea');
+    await rawTextarea.fill(xssPayload);
+
+    await page.click('button:has-text("📊 Table")');
+    await expect(page.locator('.pjv-table-wrapper')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('img[onerror]')).toHaveCount(0);
+
+    await page.click('button:has-text("📈 Chart")');
+    await expect(page.locator('.pjv-chart-container')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('img[onerror]')).toHaveCount(0);
+
+    await page.click('button:has-text("🗺️ Diagram")');
+    await expect(page.locator('.pjv-diagram-container')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('img[onerror]')).toHaveCount(0);
+
+    const xssTriggered = await page.evaluate(() => (window as any).__xss);
+    expect(xssTriggered).toBeUndefined();
+  });
+
+  test('preserves 64-bit integer precision in Raw view and Tools Export and avoids dotted-key ID collisions', async ({ page, extensionId }) => {
+    const payload = '{\n  "bigId": 9007199254740993,\n  "a.b": { "c": "dotted" },\n  "a": { "b": { "c": "nested", "deep": { "leaf": "hiddenTarget" } } }\n}';
+
+    await page.goto(`chrome-extension://${extensionId}/options.html#scratchpad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.pjv-root')).toBeVisible({ timeout: 10000 });
+
+    await page.click('button:has-text("📝 Raw")');
+    const rawTextarea = page.locator('.pjv-raw-textarea');
+    await rawTextarea.fill(payload);
+
+    // Format in Raw view and verify 64-bit integer is not rounded to 9007199254740992
+    await page.click('#pjv-btn-raw-format');
+    await expect(rawTextarea).toHaveValue(/9007199254740993/);
+
+    // Switch back to Tree view, collapse all, then search for deep collapsed value
+    await page.click('#pjv-btn-tree');
+    await page.click('#pjv-btn-collapse-all');
+    const searchInput = page.locator('#pjv-search-input');
+    await searchInput.fill('hiddenTarget');
+
+    // Wait for debounced search to expand ancestors and reveal hiddenTarget
+    await expect(page.locator('.pjv-viewport')).toContainText('hiddenTarget', { timeout: 5000 });
+  });
 });

@@ -66,6 +66,8 @@
     const lineNoCheckbox = document.getElementById('opt-line-numbers');
     const jwtCheckbox = document.getElementById('opt-detect-jwt');
     const datesCheckbox = document.getElementById('opt-detect-dates');
+    const urlsCheckbox = document.getElementById('opt-detect-urls');
+    const base64Checkbox = document.getElementById('opt-detect-base64');
     const schemaCheckbox = document.getElementById('opt-detect-schema');
     const saveBtn = document.getElementById('opt-save-btn');
     const saveToast = document.getElementById('opt-save-toast');
@@ -154,6 +156,8 @@
     lineNoCheckbox.checked = settings.showLineNumbers;
     jwtCheckbox.checked = settings.detectJwt;
     datesCheckbox.checked = settings.detectDates;
+    if (urlsCheckbox) urlsCheckbox.checked = settings.detectUrls;
+    if (base64Checkbox) base64Checkbox.checked = settings.detectBase64;
     schemaCheckbox.checked = settings.detectSchemaHints;
 
     const flashSaveToast = (msg = '✓ Settings Saved!') => {
@@ -182,10 +186,12 @@
       await saveSettings({
         theme: themeSelect.value,
         defaultExpandDepth: Number(depthSelect.value),
-        tableScanDepth: scanDepthSelect ? Number(scanDepthSelect.value) : 20,
+        tableScanDepth: scanDepthSelect ? Number(scanDepthSelect.value) : 3,
         showLineNumbers: lineNoCheckbox.checked,
         detectJwt: jwtCheckbox.checked,
         detectDates: datesCheckbox.checked,
+        detectUrls: urlsCheckbox ? urlsCheckbox.checked : settings.detectUrls,
+        detectBase64: base64Checkbox ? base64Checkbox.checked : settings.detectBase64,
         detectSchemaHints: schemaCheckbox.checked
       });
 
