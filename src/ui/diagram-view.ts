@@ -357,7 +357,7 @@ export class DiagramView {
             <span class="pjv-node-badge ${node.type}">${typeBadge}</span>
             <span class="pjv-node-key" title="${escapeHtml(node.key)}">${escapeHtml(node.key)}</span>
           </div>
-          <span class="pjv-node-count">${node.valueSummary}</span>
+          <span class="pjv-node-count">${escapeHtml(node.valueSummary)}</span>
         </div>
         ${propsHtml}
         ${hasChildren ? `

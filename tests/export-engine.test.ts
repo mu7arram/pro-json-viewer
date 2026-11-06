@@ -20,4 +20,13 @@ describe('ExportEngine', () => {
     expect(yaml).toContain('  port: 8080');
     expect(yaml).toContain('  - web');
   });
+
+  it('quotes YAML 1.1 boolean literals, empty strings, and numeric strings safely', () => {
+    const data = { empty: '', flag: 'yes', mode: 'off', code: '0123' };
+    const yaml = jsonToYaml(data);
+    expect(yaml).toContain('empty: ""');
+    expect(yaml).toContain('flag: "yes"');
+    expect(yaml).toContain('mode: "off"');
+    expect(yaml).toContain('code: "0123"');
+  });
 });

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseJson, buildFlatNodes, getNodeType } from '../src/engine/parser';
+import {
+  parseJson,
+  buildFlatNodes,
+  getNodeType,
+  formatJsonPreservingNumbers,
+  minifyJsonPreservingNumbers
+} from '../src/engine/parser';
 
 describe('Parser & JSON Flattener', () => {
   describe('getNodeType', () => {
@@ -46,9 +52,11 @@ describe('Parser & JSON Flattener', () => {
       const nodes = buildFlatNodes(sample, 2);
       expect(nodes.length).toBeGreaterThan(0);
 
-      // Root node
+      // Root node uses canonical '$' ID and path
       const rootNode = nodes.find((n) => n.depth === 1);
       expect(rootNode).toBeDefined();
+      expect(rootNode?.id).toBe('$');
+      expect(rootNode?.path).toBe('$');
       expect(rootNode?.hasChildren).toBe(true);
 
       // Deeply nested node JSONPath
@@ -69,15 +77,40 @@ describe('Parser & JSON Flattener', () => {
 
     it('respects expandedStateMap overrides', () => {
       const stateMap = new Map<string, boolean>();
-      stateMap.set('user', false); // Explicitly collapse user
+      stateMap.set('$.user', false); // Explicitly collapse $.user
 
       const nodes = buildFlatNodes(sample, 5, stateMap);
-      const userNode = nodes.find((n) => n.id === 'user');
+      const userNode = nodes.find((n) => n.id === '$.user');
       expect(userNode?.isExpanded).toBe(false);
 
       // profile should not be rendered because user is collapsed
-      const profileNode = nodes.find((n) => n.id === 'user.profile');
+      const profileNode = nodes.find((n) => n.id === '$.user.profile');
       expect(profileNode).toBeUndefined();
+    });
+
+    it('avoids node ID collisions when object keys contain dots or spaces', () => {
+      const dottedPayload = {
+        'a.b': { c: 'dotted-key' },
+        a: { b: { c: 'nested-key' } }
+      };
+
+      const nodes = buildFlatNodes(dottedPayload, 5);
+      const ids = nodes.map((n) => n.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(ids).toContain('$["a.b"].c');
+      expect(ids).toContain('$.a.b.c');
+    });
+  });
+
+  describe('64-bit integer precision preservation', () => {
+    it('preserves integers beyond Number.MAX_SAFE_INTEGER when formatting and minifying', () => {
+      const raw = '{"bigId":9007199254740993,"nested":{"snowflake":18446744073709551615}}';
+      const formatted = formatJsonPreservingNumbers(raw, 2);
+      expect(formatted).toContain('"bigId": 9007199254740993');
+      expect(formatted).toContain('"snowflake": 18446744073709551615');
+
+      const minified = minifyJsonPreservingNumbers(formatted);
+      expect(minified).toBe(raw);
     });
   });
 });

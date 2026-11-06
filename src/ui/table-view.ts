@@ -251,11 +251,14 @@ export class TableView {
     this.datasets.forEach((dataset) => {
       const tabBtn = document.createElement('button');
       tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
-      tabBtn.innerHTML = `
-        <span>${dataset.icon}</span>
-        <span>${dataset.label}</span>
-        <span class="pjv-tab-badge">${dataset.count}</span>
-      `;
+      const iconSpan = document.createElement('span');
+      iconSpan.textContent = dataset.icon;
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = dataset.label;
+      const countSpan = document.createElement('span');
+      countSpan.className = 'pjv-tab-badge';
+      countSpan.textContent = String(dataset.count);
+      tabBtn.append(iconSpan, labelSpan, countSpan);
       tabBtn.onclick = () => {
         this.activeTabId = dataset.id;
         this.loadActiveTab();
@@ -272,10 +275,12 @@ export class TableView {
     const activeDataset = this.datasets.find((d) => d.id === this.activeTabId)!;
     const meta = document.createElement('div');
     meta.className = 'pjv-table-meta';
-    meta.innerHTML = `
-      <span>${activeDataset.icon} ${activeDataset.label}</span>
-      <span class="pjv-badge-count">${this.getFilteredRows().length} / ${this.currentArray.length} items</span>
-    `;
+    const metaTitle = document.createElement('span');
+    metaTitle.textContent = `${activeDataset.icon} ${activeDataset.label}`;
+    const metaCount = document.createElement('span');
+    metaCount.className = 'pjv-badge-count';
+    metaCount.textContent = `${this.getFilteredRows().length} / ${this.currentArray.length} items`;
+    meta.append(metaTitle, metaCount);
 
     const controls = document.createElement('div');
     controls.className = 'pjv-table-controls';
@@ -430,7 +435,11 @@ export class TableView {
 
     this.columns.forEach((col) => {
       const th = document.createElement('th');
-      th.innerHTML = `${col} <span class="sort-icon">${this.sortColumn === col ? (this.sortAsc ? '▲' : '▼') : '↕'}</span>`;
+      const colText = document.createTextNode(`${col} `);
+      const sortSpan = document.createElement('span');
+      sortSpan.className = 'sort-icon';
+      sortSpan.textContent = this.sortColumn === col ? (this.sortAsc ? '▲' : '▼') : '↕';
+      th.append(colText, sortSpan);
       if (this.sortColumn === col) th.classList.add('sorted');
 
       th.onclick = () => {
@@ -576,16 +585,18 @@ export class TableView {
 
     // 1. Question Type Badges
     if (colLower === 'type' && typeof val === 'string') {
-      if (val === 'single-choice') return `<span class="pjv-pill pjv-type-single">🟢 ${val}</span>`;
-      if (val === 'multiple-choice') return `<span class="pjv-pill pjv-type-multiple">🟣 ${val}</span>`;
-      if (val === 'dropdown') return `<span class="pjv-pill pjv-type-dropdown">🔵 ${val}</span>`;
-      if (val === 'ranking') return `<span class="pjv-pill pjv-type-ranking">🟡 ${val}</span>`;
-      return `<span class="pjv-pill pjv-type-text">⚪ ${val}</span>`;
+      const safeVal = this.escapeHtml(val);
+      if (val === 'single-choice') return `<span class="pjv-pill pjv-type-single">🟢 ${safeVal}</span>`;
+      if (val === 'multiple-choice') return `<span class="pjv-pill pjv-type-multiple">🟣 ${safeVal}</span>`;
+      if (val === 'dropdown') return `<span class="pjv-pill pjv-type-dropdown">🔵 ${safeVal}</span>`;
+      if (val === 'ranking') return `<span class="pjv-pill pjv-type-ranking">🟡 ${safeVal}</span>`;
+      return `<span class="pjv-pill pjv-type-text">⚪ ${safeVal}</span>`;
     }
 
     // 2. Sub-array of Questions badge link
     if ((colLower === 'questions' || colLower === 'skill_levels') && Array.isArray(parsedVal)) {
-      return `<span class="pjv-table-cell-json" style="background: var(--pjv-badge-local-bg); color: var(--pjv-badge-local-text); border: 1px solid var(--pjv-badge-local-border); font-weight:600; cursor:pointer;" title="Click to view ${parsedVal.length} ${colKey} in table">❓ ${parsedVal.length} ${colKey} (View)</span>`;
+      const safeKey = this.escapeHtml(colKey);
+      return `<span class="pjv-table-cell-json" style="background: var(--pjv-badge-local-bg); color: var(--pjv-badge-local-text); border: 1px solid var(--pjv-badge-local-border); font-weight:600; cursor:pointer;" title="Click to view ${parsedVal.length} ${safeKey} in table">❓ ${parsedVal.length} ${safeKey} (View)</span>`;
     }
 
     // 3. Priority Pills
@@ -593,14 +604,14 @@ export class TableView {
       const lower = val.toLowerCase();
       if (lower === 'low') return `<span class="pjv-pill pjv-pill-low">🟢 Low</span>`;
       if (lower === 'medium') return `<span class="pjv-pill pjv-pill-medium">🟠 Medium</span>`;
-      if (lower === 'high' || lower === 'critical') return `<span class="pjv-pill pjv-pill-high">🔴 ${val}</span>`;
+      if (lower === 'high' || lower === 'critical') return `<span class="pjv-pill pjv-pill-high">🔴 ${this.escapeHtml(val)}</span>`;
     }
 
     // 4. Expected Answer formatting
     if (colLower === 'expected' && typeof parsedVal === 'object' && parsedVal !== null) {
       if (parsedVal.correct) {
         const correctVal = Array.isArray(parsedVal.correct) ? parsedVal.correct.join(', ') : parsedVal.correct;
-        return `<span class="pjv-pill pjv-type-single" style="font-family:var(--pjv-font-mono);">Key: ${correctVal}</span>`;
+        return `<span class="pjv-pill pjv-type-single" style="font-family:var(--pjv-font-mono);">Key: ${this.escapeHtml(String(correctVal))}</span>`;
       }
     }
 

@@ -53,6 +53,7 @@ export interface UserSettings {
   detectUrls: boolean;
   detectBase64: boolean;
   detectSchemaHints: boolean;
+  enableQuizHeuristics?: boolean;
   autoActivateOnJson: boolean;
   tableScanDepth: number; // 1 - 25
 }
@@ -70,6 +71,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   detectUrls: true,
   detectBase64: true,
   detectSchemaHints: true,
+  enableQuizHeuristics: true,
   autoActivateOnJson: true
 };
 

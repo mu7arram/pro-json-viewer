@@ -340,11 +340,14 @@ export class ChartView {
         const tabBtn = document.createElement('button');
         tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
         const countLabel = dataset.array ? dataset.array.length : (dataset.breakdown ? dataset.breakdown.length : (dataset.kpis ? dataset.kpis.length : 0));
-        tabBtn.innerHTML = `
-          <span>${dataset.icon}</span>
-          <span>${dataset.label}</span>
-          <span class="pjv-tab-badge">${countLabel}</span>
-        `;
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = dataset.icon;
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = dataset.label;
+        const countSpan = document.createElement('span');
+        countSpan.className = 'pjv-tab-badge';
+        countSpan.textContent = String(countLabel);
+        tabBtn.append(iconSpan, labelSpan, countSpan);
         tabBtn.onclick = () => {
           this.activeTabId = dataset.id;
           this.configureTabDefaults();
