@@ -1,6 +1,7 @@
 const DEFAULT_SETTINGS = {
   theme: 'system',
   defaultExpandDepth: 2,
+  tableScanDepth: 3,
   fontSize: 13,
   indentSize: 18,
   showLineNumbers: true,
@@ -10,6 +11,7 @@ const DEFAULT_SETTINGS = {
   detectUrls: true,
   detectBase64: true,
   detectSchemaHints: true,
+  enableQuizHeuristics: true,
   autoActivateOnJson: true
 };
 
@@ -21,11 +23,13 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     await chrome.storage.local.set({ pro_json_settings: DEFAULT_SETTINGS });
   }
 
-  // Create context menu item
-  chrome.contextMenus.create({
-    id: 'pjv-format-selection',
-    title: 'Format & View with Pro JSON',
-    contexts: ['selection']
+  // Recreate context menu item safely across updates/reloads
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'pjv-format-selection',
+      title: 'Format & View with Pro JSON',
+      contexts: ['selection']
+    });
   });
 
   // On first install, if running in Firefox, open Welcome & Setup guide
@@ -38,12 +42,12 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 // Handle context menu clicks
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+chrome.runtime.onInstalled && chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'pjv-format-selection' && info.selectionText && tab?.id) {
     try {
-      // Validate JSON selection
-      const parsed = JSON.parse(info.selectionText);
-      await chrome.storage.local.set({ pjv_scratchpad_json: JSON.stringify(parsed) });
+      // Validate JSON selection and preserve raw numeric tokens
+      JSON.parse(info.selectionText);
+      await chrome.storage.local.set({ pjv_scratchpad_json: info.selectionText.trim() });
       await chrome.tabs.create({ url: chrome.runtime.getURL('options.html#scratchpad') });
     } catch {
       await chrome.action.setBadgeText({ tabId: tab.id, text: 'ERR' });

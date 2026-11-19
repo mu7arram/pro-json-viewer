@@ -29,6 +29,96 @@ export function parseJson(raw: string): any {
   }
 }
 
+export function formatJsonPathSegment(seg: PathSegment): string {
+  if (seg.type === 'index') return `[${seg.key}]`;
+  const k = String(seg.key);
+  return /^[A-Za-z_$][\w$]*$/.test(k) ? `.${k}` : `[${JSON.stringify(k)}]`;
+}
+
+export interface JsonToken {
+  type: 'punct' | 'string' | 'literal';
+  value: string;
+}
+
+export function tokenizeJsonText(raw: string): JsonToken[] {
+  const tokens: JsonToken[] = [];
+  let i = 0;
+  const n = raw.length;
+  while (i < n) {
+    const ch = raw[i];
+    if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n') {
+      i++;
+      continue;
+    }
+    if (ch === '{' || ch === '}' || ch === '[' || ch === ']' || ch === ':' || ch === ',') {
+      tokens.push({ type: 'punct', value: ch });
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      let end = i + 1;
+      while (end < n) {
+        if (raw[end] === '\\') {
+          end += 2;
+        } else if (raw[end] === '"') {
+          end++;
+          break;
+        } else {
+          end++;
+        }
+      }
+      tokens.push({ type: 'string', value: raw.slice(i, end) });
+      i = end;
+      continue;
+    }
+    let end = i;
+    while (end < n && !' \t\r\n{}[]:,'.includes(raw[end])) {
+      end++;
+    }
+    tokens.push({ type: 'literal', value: raw.slice(i, end) });
+    i = end;
+  }
+  return tokens;
+}
+
+export function formatJsonPreservingNumbers(rawText: string, indentSpaces: number = 2): string {
+  const indentUnit = ' '.repeat(indentSpaces);
+  const tokens = tokenizeJsonText(rawText);
+  const out: string[] = [];
+  let depth = 0;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    const next = tokens[i + 1];
+
+    if (tok.type === 'punct') {
+      if (tok.value === '{' || tok.value === '[') {
+        if (next && next.type === 'punct' && ((tok.value === '{' && next.value === '}') || (tok.value === '[' && next.value === ']'))) {
+          out.push(tok.value + next.value);
+          i++;
+        } else {
+          depth++;
+          out.push(tok.value + '\n' + indentUnit.repeat(depth));
+        }
+      } else if (tok.value === '}' || tok.value === ']') {
+        depth = Math.max(0, depth - 1);
+        out.push('\n' + indentUnit.repeat(depth) + tok.value);
+      } else if (tok.value === ':') {
+        out.push(': ');
+      } else if (tok.value === ',') {
+        out.push(',\n' + indentUnit.repeat(depth));
+      }
+    } else {
+      out.push(tok.value);
+    }
+  }
+  return out.join('');
+}
+
+export function minifyJsonPreservingNumbers(rawText: string): string {
+  return tokenizeJsonText(rawText).map((t) => t.value).join('');
+}
+
 /**
  * Builds a flattened list of tree nodes from a JSON data structure.
  * Supports default expand depth and lazy expanding.
@@ -50,16 +140,13 @@ export function buildFlatNodes(
     const type = getNodeType(value);
     const hasChildren = type === 'object' || type === 'array';
     
-    // Construct unique node ID and JSONPath
-    let currentId = 'root';
+    // Construct canonical collision-free node ID and JSONPath
+    let currentId = '$';
     let path = '$';
 
     if (pathSegments.length > 0) {
-      const segParts = pathSegments.map((seg) =>
-        seg.type === 'index' ? `[${seg.key}]` : `.${seg.key}`
-      );
-      path = `$${segParts.join('')}`;
-      currentId = pathSegments.map((s) => s.key).join('.');
+      path = `$${pathSegments.map(formatJsonPathSegment).join('')}`;
+      currentId = path;
     }
 
     let childCount = 0;
@@ -98,21 +185,17 @@ export function buildFlatNodes(
         value.forEach((item: any, idx: number) => {
           const seg: PathSegment = { key: idx, type: 'index' };
           const isAnomaly = anomalies.has(idx);
+          const childIndex = result.length;
           
           traverse(item, idx, currentId, depth + 1, [...pathSegments, seg]);
           
-          if (isAnomaly) {
-            // Attach anomaly flag to child root
-            const childNodeId = [...pathSegments, seg].map((s) => s.key).join('.');
-            const childNode = result.find((n) => n.id === childNodeId);
-            if (childNode) {
-              childNode.smart = {
-                type: 'schema_anomaly',
-                raw: 'Schema Anomaly',
-                badge: 'ANOMALY',
-                formatted: '⚠️ Inconsistent key schema compared to other items in this array'
-              };
-            }
+          if (isAnomaly && result[childIndex]) {
+            result[childIndex].smart = {
+              type: 'schema_anomaly',
+              raw: 'Schema Anomaly',
+              badge: 'ANOMALY',
+              formatted: '⚠️ Inconsistent key schema compared to other items in this array'
+            };
           }
         });
       } else if (type === 'object' && value !== null) {

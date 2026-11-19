@@ -128,7 +128,7 @@ export function registerKeyboardShortcuts(handlers: KeyboardShortcutsHandlers): 
 
     // Escape closes any open modals even if inside an input
     if (e.key === 'Escape') {
-      const openModal = document.querySelector('.pjv-modal-backdrop');
+      const openModal = document.querySelector('.pjv-modal-backdrop, .pjv-shortcuts-backdrop, .pjv-smart-popover');
       if (openModal) {
         openModal.remove();
         e.preventDefault();
@@ -183,8 +183,9 @@ export function registerKeyboardShortcuts(handlers: KeyboardShortcutsHandlers): 
       }
     }
 
-    // Don't trigger letter hotkeys when typing in text fields
+    // Don't trigger letter hotkeys when typing in text fields or when modifier keys are held
     if (isInput) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     if (e.key === 'e' || e.key === 'E') {
       if (handlers.onExpandAll) {

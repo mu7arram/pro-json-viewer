@@ -301,6 +301,22 @@
       <input type="checkbox" id="opt-line-numbers" />
     </div>
 
+    <div class="setting-row">
+      <div>
+        <label for="opt-font-size" class="setting-label">Tree Font Size (px)</label>
+        <div class="setting-desc">Font size for keys and values in the virtualized tree view (10–22 px).</div>
+      </div>
+      <input type="number" id="opt-font-size" min="10" max="22" step="1" value="13" style="width: 64px;" />
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <label for="opt-indent-size" class="setting-label">Tree Indent Width (px)</label>
+        <div class="setting-desc">Horizontal indentation per nesting level in the tree view (8–40 px).</div>
+      </div>
+      <input type="number" id="opt-indent-size" min="8" max="40" step="1" value="18" style="width: 64px;" />
+    </div>
+
     <div class="section-title">Smart Decoders & Hints</div>
 
     <div class="setting-row">
@@ -321,10 +337,34 @@
 
     <div class="setting-row">
       <div>
+        <label for="opt-detect-urls" class="setting-label">URL Link Detection</label>
+        <div class="setting-desc">Detect HTTP/HTTPS URLs and show interactive link badges.</div>
+      </div>
+      <input type="checkbox" id="opt-detect-urls" />
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <label for="opt-detect-base64" class="setting-label">Base64 Payload Detection</label>
+        <div class="setting-desc">Auto-detect Base64-encoded strings and allow inline decoding.</div>
+      </div>
+      <input type="checkbox" id="opt-detect-base64" />
+    </div>
+
+    <div class="setting-row">
+      <div>
         <label for="opt-detect-schema" class="setting-label">Schema Anomaly Hints</label>
         <div class="setting-desc">Highlight objects in arrays that miss common keys.</div>
       </div>
       <input type="checkbox" id="opt-detect-schema" />
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <label for="opt-quiz-heuristics" class="setting-label">Assessment & Quiz Table Formatting</label>
+        <div class="setting-desc">Merge nested question arrays and format skill/choice badges in Table View.</div>
+      </div>
+      <input type="checkbox" id="opt-quiz-heuristics" />
     </div>
 
     <div style="display:flex; justify-content:space-between; align-items:center;">

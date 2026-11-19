@@ -10,10 +10,15 @@ export function jsonToYaml(data: any, indentLevel = 0): string {
   if (typeof data === 'number') return String(data);
 
   if (typeof data === 'string') {
+    if (data === '') return '""';
     if (data.includes('\n')) {
       return `|\n${data.split('\n').map((line) => `${indent}  ${line}`).join('\n')}`;
     }
-    if (/[:#\[\]{},&*?|<>=!%@`]|^[0-9]/.test(data) || data === 'true' || data === 'false' || data === 'null') {
+    if (
+      /[:#\[\]{},&*?|<>=!%@`]|^[0-9]|^\s|\s$|^-\s|^-$/.test(data) ||
+      /^(true|false|null|~|yes|no|on|off|y|n)$/i.test(data) ||
+      !isNaN(Number(data))
+    ) {
       return JSON.stringify(data);
     }
     return data;

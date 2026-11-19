@@ -19,6 +19,8 @@ export function searchTree(
   }
 
   const trimmed = query.trim();
+  const byId = new Map<string, FlatNode>();
+  nodes.forEach((n) => byId.set(n.id, n));
 
   if (mode === 'jsonpath') {
     // JSONPath evaluation: matching nodes whose JSONPath or path string matches
@@ -26,7 +28,7 @@ export function searchTree(
     nodes.forEach((node) => {
       if (node.path.toLowerCase().includes(pathLower)) {
         matchedIds.add(node.id);
-        markAncestors(node, nodes, expandAncestorIds);
+        markAncestors(node, byId, expandAncestorIds);
       }
     });
     return { matchedIds, expandAncestorIds };
@@ -64,7 +66,7 @@ export function searchTree(
 
     if (matchKey || matchVal) {
       matchedIds.add(node.id);
-      markAncestors(node, nodes, expandAncestorIds);
+      markAncestors(node, byId, expandAncestorIds);
     }
   });
 
@@ -73,14 +75,14 @@ export function searchTree(
 
 function markAncestors(
   node: FlatNode,
-  allNodes: FlatNode[],
+  byId: Map<string, FlatNode>,
   ancestorIds: Set<string>
 ) {
   let currentParentId = node.parentId;
 
-  while (currentParentId) {
+  while (currentParentId && !ancestorIds.has(currentParentId)) {
     ancestorIds.add(currentParentId);
-    const parentNode = allNodes.find((n) => n.id === currentParentId);
+    const parentNode = byId.get(currentParentId);
     if (parentNode) {
       currentParentId = parentNode.parentId;
     } else {
