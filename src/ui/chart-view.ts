@@ -822,9 +822,11 @@ export class ChartView {
         `;
       }).join('');
 
+      const svgClass = totalW > baseW ? 'pjv-chart-svg pjv-chart-svg-wide' : 'pjv-chart-svg';
+      const svgWidthAttr = totalW > baseW ? String(totalW) : '100%';
       return `
         <div class="pjv-chart-svg-container">
-          <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+          <svg width="${svgWidthAttr}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="${svgClass}">
             ${barsSvg}
           </svg>
         </div>
@@ -865,7 +867,7 @@ export class ChartView {
 
     return `
       <div class="pjv-chart-svg-container">
-        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMin meet" class="pjv-chart-svg" style="height: ${totalH}px;">
           ${rowsSvg}
         </svg>
       </div>

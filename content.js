@@ -502,9 +502,10 @@ class Virtualizer {
     this.onRender = options.onRender;
     this.nodes = [];
     this.animationFrameId = null;
+    this.lastScrollTop = -1;
 
     this.container.style.position = 'relative';
-    this.container.style.overflowY = 'auto';
+    this.container.style.overflow = 'auto';
 
     this.totalHeightSpacer = document.createElement('div');
     this.totalHeightSpacer.className = 'virtual-spacer';
@@ -512,12 +513,13 @@ class Virtualizer {
 
     this.contentWrapper = document.createElement('div');
     this.contentWrapper.className = 'virtual-content-wrapper';
-    this.contentWrapper.style.cssText = 'width: 100%; position: absolute; top: 0; left: 0;';
+    this.contentWrapper.style.cssText = 'min-width: 100%; width: max-content; position: absolute; top: 0; left: 0;';
 
     this.container.appendChild(this.totalHeightSpacer);
     this.container.appendChild(this.contentWrapper);
 
     this.scrollListener = () => {
+      if (this.container.scrollTop === this.lastScrollTop) return;
       if (this.animationFrameId !== null) cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = requestAnimationFrame(() => this.updateView());
     };
@@ -529,6 +531,7 @@ class Virtualizer {
 
   setNodes(nodes) {
     this.nodes = nodes;
+    this.lastScrollTop = -1;
     const totalHeight = this.nodes.length * this.rowHeight;
     this.totalHeightSpacer.style.height = `${totalHeight}px`;
     this.updateView();
@@ -540,6 +543,7 @@ class Virtualizer {
 
   updateView() {
     if (this.nodes.length === 0) {
+      this.lastScrollTop = 0;
       this.totalHeightSpacer.style.height = '0px';
       this.contentWrapper.style.transform = 'translate3d(0, 0, 0)';
       this.onRender([], 0);
@@ -547,6 +551,7 @@ class Virtualizer {
     }
 
     const scrollTop = this.container.scrollTop;
+    this.lastScrollTop = scrollTop;
     const viewportHeight = this.container.clientHeight || 600;
 
     const startIndex = Math.max(0, Math.floor(scrollTop / this.rowHeight) - this.buffer);
@@ -2661,9 +2666,11 @@ class ChartView {
         `;
       }).join('');
 
+      const svgClass = totalW > baseW ? 'pjv-chart-svg pjv-chart-svg-wide' : 'pjv-chart-svg';
+      const svgWidthAttr = totalW > baseW ? String(totalW) : '100%';
       return `
         <div class="pjv-chart-svg-container">
-          <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+          <svg width="${svgWidthAttr}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="${svgClass}">
             ${barsSvg}
           </svg>
         </div>
@@ -2704,7 +2711,7 @@ class ChartView {
 
     return `
       <div class="pjv-chart-svg-container">
-        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMin meet" class="pjv-chart-svg" style="height: ${totalH}px;">
           ${rowsSvg}
         </svg>
       </div>
@@ -6374,12 +6381,15 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
     });
 
     const tableContainer = document.createElement('div');
+    tableContainer.className = 'pjv-view-panel';
     tableContainer.style.display = 'none';
 
     const chartContainer = document.createElement('div');
+    chartContainer.className = 'pjv-chart-view-host';
     chartContainer.style.display = 'none';
 
     const diagramContainer = document.createElement('div');
+    diagramContainer.className = 'pjv-view-panel';
     diagramContainer.style.display = 'none';
 
     const diffContainer = document.createElement('div');

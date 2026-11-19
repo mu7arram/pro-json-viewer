@@ -8,6 +8,8 @@
   --pjv-bg-row-hover: rgba(56, 189, 248, 0.08);
   --pjv-bg-row-selected: rgba(56, 189, 248, 0.18);
   --pjv-bg-badge: #1e293b;
+  --pjv-bg-card: #1e293b;
+  --pjv-bg-hover: rgba(56, 189, 248, 0.12);
   --pjv-border-color: rgba(255, 255, 255, 0.1);
   --pjv-indent-guide: rgba(255, 255, 255, 0.08);
   
@@ -21,6 +23,7 @@
   --pjv-syntax-summary: #64748b;   /* Slate */
   
   --pjv-accent: #0284c7;
+  --pjv-accent-color: #38bdf8;
   --pjv-accent-hover: #0369a1;
   --pjv-search-match: rgba(250, 204, 21, 0.4);
   
@@ -70,6 +73,9 @@
   --pjv-bg-row-hover: rgba(2, 132, 199, 0.06);
   --pjv-bg-row-selected: rgba(2, 132, 199, 0.15);
   --pjv-bg-badge: #f1f5f9;
+  --pjv-bg-card: #ffffff;
+  --pjv-bg-hover: rgba(2, 132, 199, 0.08);
+  --pjv-accent-color: #0284c7;
   --pjv-border-color: #e2e8f0;
   --pjv-indent-guide: rgba(0, 0, 0, 0.07);
   
@@ -121,6 +127,8 @@
   --pjv-bg-row-hover: rgba(189, 147, 249, 0.12);
   --pjv-bg-row-selected: rgba(189, 147, 249, 0.22);
   --pjv-bg-badge: #44475a;
+  --pjv-bg-card: #343746;
+  --pjv-bg-hover: rgba(189, 147, 249, 0.16);
   --pjv-border-color: rgba(98, 114, 164, 0.3);
   --pjv-indent-guide: rgba(98, 114, 164, 0.2);
 
@@ -134,6 +142,7 @@
   --pjv-syntax-summary: #6272a4;
 
   --pjv-accent: #ff79c6;
+  --pjv-accent-color: #ff79c6;
   --pjv-badge-local-bg: rgba(80, 250, 123, 0.15);
   --pjv-badge-local-text: #50fa7b;
   --pjv-badge-local-border: rgba(80, 250, 123, 0.3);
@@ -145,6 +154,8 @@
   --pjv-bg-row-hover: rgba(97, 175, 239, 0.12);
   --pjv-bg-row-selected: rgba(97, 175, 239, 0.22);
   --pjv-bg-badge: #3e4451;
+  --pjv-bg-card: #21252b;
+  --pjv-bg-hover: rgba(97, 175, 239, 0.16);
   --pjv-border-color: rgba(92, 99, 112, 0.3);
   --pjv-indent-guide: rgba(92, 99, 112, 0.2);
 
@@ -158,6 +169,7 @@
   --pjv-syntax-summary: #5c6370;
 
   --pjv-accent: #61afef;
+  --pjv-accent-color: #61afef;
   --pjv-badge-local-bg: rgba(152, 195, 121, 0.15);
   --pjv-badge-local-text: #98c379;
   --pjv-badge-local-border: rgba(152, 195, 121, 0.3);
@@ -169,6 +181,8 @@
   --pjv-bg-row-hover: rgba(255, 216, 102, 0.12);
   --pjv-bg-row-selected: rgba(255, 216, 102, 0.22);
   --pjv-bg-badge: #403c40;
+  --pjv-bg-card: #363337;
+  --pjv-bg-hover: rgba(255, 216, 102, 0.16);
   --pjv-border-color: rgba(114, 112, 114, 0.3);
   --pjv-indent-guide: rgba(114, 112, 114, 0.2);
 
@@ -182,6 +196,7 @@
   --pjv-syntax-summary: #727072;
 
   --pjv-accent: #ffd866;
+  --pjv-accent-color: #ffd866;
   --pjv-badge-local-bg: rgba(169, 220, 118, 0.15);
   --pjv-badge-local-text: #a9dc76;
   --pjv-badge-local-border: rgba(169, 220, 118, 0.3);
@@ -193,6 +208,8 @@
   --pjv-bg-row-hover: rgba(136, 192, 208, 0.12);
   --pjv-bg-row-selected: rgba(136, 192, 208, 0.22);
   --pjv-bg-badge: #3b4252;
+  --pjv-bg-card: #3b4252;
+  --pjv-bg-hover: rgba(136, 192, 208, 0.16);
   --pjv-border-color: rgba(76, 86, 106, 0.4);
   --pjv-indent-guide: rgba(76, 86, 106, 0.25);
 
@@ -206,6 +223,7 @@
   --pjv-syntax-summary: #7b88a1;
 
   --pjv-accent: #81a1c1;
+  --pjv-accent-color: #88c0d0;
   --pjv-badge-local-bg: rgba(163, 190, 140, 0.15);
   --pjv-badge-local-text: #a3be8c;
   --pjv-badge-local-border: rgba(163, 190, 140, 0.3);
@@ -217,6 +235,8 @@
   --pjv-bg-row-hover: rgba(88, 166, 255, 0.12);
   --pjv-bg-row-selected: rgba(88, 166, 255, 0.22);
   --pjv-bg-badge: #21262d;
+  --pjv-bg-card: #161b22;
+  --pjv-bg-hover: rgba(88, 166, 255, 0.16);
   --pjv-border-color: rgba(48, 54, 61, 0.6);
   --pjv-indent-guide: rgba(48, 54, 61, 0.4);
 
@@ -230,6 +250,7 @@
   --pjv-syntax-summary: #8b949e;
 
   --pjv-accent: #1f6feb;
+  --pjv-accent-color: #58a6ff;
   --pjv-badge-local-bg: rgba(46, 160, 67, 0.15);
   --pjv-badge-local-text: #3fb950;
   --pjv-badge-local-border: rgba(46, 160, 67, 0.3);
@@ -241,6 +262,8 @@
   --pjv-bg-row-hover: rgba(9, 105, 218, 0.08);
   --pjv-bg-row-selected: rgba(9, 105, 218, 0.18);
   --pjv-bg-badge: #f6f8fa;
+  --pjv-bg-card: #ffffff;
+  --pjv-bg-hover: rgba(9, 105, 218, 0.08);
   --pjv-border-color: #d0d7de;
   --pjv-indent-guide: rgba(140, 149, 159, 0.2);
 
@@ -254,6 +277,7 @@
   --pjv-syntax-summary: #57606a;
 
   --pjv-accent: #0969da;
+  --pjv-accent-color: #0969da;
   --pjv-badge-local-bg: rgba(31, 136, 61, 0.12);
   --pjv-badge-local-text: #1a7f37;
   --pjv-badge-local-border: rgba(31, 136, 61, 0.3);
@@ -289,12 +313,29 @@ body.pjv-injected {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
+  overflow: hidden;
+}
+
+.pjv-view-panel {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.pjv-chart-view-host {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Glassmorphic 2-Tier Adaptive Toolbar */
 .pjv-toolbar-wrapper {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   background: var(--pjv-bg-toolbar);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -376,6 +417,22 @@ body.pjv-injected {
   color: var(--pjv-text-main);
 }
 
+.pjv-select {
+  background: var(--pjv-bg-main);
+  color: var(--pjv-text-main);
+  border: 1px solid var(--pjv-border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+}
+
+.pjv-select option {
+  background: var(--pjv-bg-main);
+  color: var(--pjv-text-main);
+}
+
 /* Backward-compatible .pjv-toolbar selector */
 .pjv-toolbar {
   display: flex;
@@ -440,7 +497,7 @@ body.pjv-injected {
 .pjv-table-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 46px);
+  height: 100%;
   background: var(--pjv-bg-main);
   color: var(--pjv-text-main);
   box-sizing: border-box;
@@ -751,9 +808,10 @@ body.pjv-injected {
 /* Tree View Container */
 .pjv-viewport {
   flex: 1;
+  min-height: 0;
   width: 100%;
   position: relative;
-  overflow-y: auto;
+  overflow: auto;
 }
 
 /* Tree Row Styling */
@@ -893,6 +951,8 @@ body.pjv-injected {
 
 /* Raw Mode Textarea */
 .pjv-raw-textarea {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -1043,6 +1103,28 @@ body.pjv-injected {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  box-sizing: border-box;
+}
+
+.pjv-chart-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--pjv-border-color);
+  padding-bottom: 10px;
+}
+
+.pjv-chart-header-bar .pjv-table-tabs-container {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+}
+
+.pjv-chart-header-bar .pjv-depth-container {
+  flex-shrink: 0;
+}
 }
 
 .pjv-chart-kpi-grid {
@@ -1124,6 +1206,9 @@ body.pjv-injected {
   gap: 8px;
   flex: 1;
   min-width: 160px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .pjv-legend-item {
@@ -1156,12 +1241,20 @@ body.pjv-injected {
 .pjv-chart-svg-container {
   width: 100%;
   overflow-x: auto;
-  padding: 10px 0;
+  overflow-y: auto;
+  max-height: 62vh;
+  padding: 10px 4px;
+  box-sizing: border-box;
 }
 
 .pjv-chart-svg {
   display: block;
   max-width: 100%;
+}
+
+.pjv-chart-svg-wide {
+  max-width: none;
+  min-width: 100%;
 }
 
 .pjv-svg-bar-group:hover rect,
@@ -1403,7 +1496,7 @@ body.pjv-injected {
 .pjv-diagram-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 46px);
+  height: 100%;
   background: var(--pjv-bg-main);
   position: relative;
   overflow: hidden;
@@ -2260,9 +2353,10 @@ body.pjv-injected {
 
 /* --- 15. DUAL-EDITOR DIFF WORKSPACE --- */
 .pjv-diff-container {
-  display: block;
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: calc(100vh - 90px);
+  height: 100%;
   overflow: hidden;
 }
 
@@ -2490,12 +2584,12 @@ body.pjv-injected {
   align-items: center;
   justify-content: space-between;
   padding: 5px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--pjv-border-color);
   transition: background 0.15s ease;
 }
 
 .pjv-diff-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--pjv-bg-row-hover);
 }
 
 .pjv-diff-row.diff-added {
@@ -2562,6 +2656,36 @@ body.pjv-injected {
 .pjv-diff-val-new {
   color: #4ade80;
   font-weight: 600;
+}
+
+[data-theme="light"] .pjv-diff-val-old,
+[data-theme="github-light"] .pjv-diff-val-old {
+  color: #b91c1c;
+}
+
+[data-theme="light"] .pjv-diff-val-new,
+[data-theme="github-light"] .pjv-diff-val-new {
+  color: #15803d;
+}
+
+[data-theme="light"] .pjv-diff-arrow,
+[data-theme="github-light"] .pjv-diff-arrow {
+  color: #b45309;
+}
+
+[data-theme="light"] .pjv-diff-pill.added,
+[data-theme="github-light"] .pjv-diff-pill.added {
+  color: #15803d;
+}
+
+[data-theme="light"] .pjv-diff-pill.removed,
+[data-theme="github-light"] .pjv-diff-pill.removed {
+  color: #b91c1c;
+}
+
+[data-theme="light"] .pjv-diff-pill.modified,
+[data-theme="github-light"] .pjv-diff-pill.modified {
+  color: #b45309;
 }
 
 .pjv-diff-path {
