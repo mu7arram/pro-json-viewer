@@ -915,6 +915,9 @@ class Toolbar {
     this.currentMode = 'tree';
     this.maxDepth = options.maxDepth || 3;
     this.isRawWrapped = false;
+    this.currentSearchQuery = '';
+    this.currentFilterMode = 'text';
+    this.lastMatchStatus = { currentOneBased: 0, totalMatches: 0, hasQuery: false };
     this.render();
   }
 
@@ -1107,10 +1110,20 @@ class Toolbar {
       this.searchPrevBtn = sub.querySelector('#pjv-search-prev');
       this.searchNextBtn = sub.querySelector('#pjv-search-next');
 
+      this.searchInput.value = this.currentSearchQuery;
+      this.filterSelect.value = this.currentFilterMode;
+      this.updateSearchMatchStatus(
+        this.lastMatchStatus.currentOneBased,
+        this.lastMatchStatus.totalMatches,
+        this.lastMatchStatus.hasQuery
+      );
+
       let searchDebounceTimer = null;
       const emitSearch = () => {
         if (this.searchInput && this.filterSelect) {
-          this.options.onSearchChange(this.searchInput.value, this.filterSelect.value);
+          this.currentSearchQuery = this.searchInput.value;
+          this.currentFilterMode = this.filterSelect.value;
+          this.options.onSearchChange(this.currentSearchQuery, this.currentFilterMode);
         }
       };
 
@@ -1220,6 +1233,7 @@ class Toolbar {
   }
 
   updateSearchMatchStatus(currentOneBased, totalMatches, hasQuery) {
+    this.lastMatchStatus = { currentOneBased, totalMatches, hasQuery };
     if (!this.searchCountEl || !this.searchPrevBtn || !this.searchNextBtn) return;
     if (!hasQuery) {
       this.searchCountEl.style.display = 'none';
@@ -4426,84 +4440,13 @@ class DiffView {
           <span id="pjv-diff-step-counter" class="pjv-diff-step-counter">${totalDiffs > 0 ? `${this.currentDiffIndex + 1} of ${totalDiffs}` : '0 diffs'}</span>
           <button id="pjv-diff-next" class="pjv-btn" title="Jump to next changed row">▼ Next</button>
         </div>
-
-        <div class="pjv-btn-group">
-          <button id="pjv-diff-expand-all" class="pjv-btn">Expand All</button>
-          <button id="pjv-diff-collapse-all" class="pjv-btn">Collapse All</button>
-        </div>
       `;
 
       treeViewWrapper.appendChild(filterBar);
 
       const treeContent = document.createElement('div');
       treeContent.className = 'pjv-diff-tree-content';
-
-      if (!this.diffResult || this.diffResult.diffNodes.length === 0) {
-        treeContent.innerHTML = `
-          <div class="pjv-diff-empty">
-            <div class="pjv-diff-empty-icon">🔀</div>
-            <strong>No diff computed yet</strong>
-            <p class="pjv-diff-empty-desc">
-              Switch to Side-by-Side Editors, paste both documents, and click <strong>Compare Diff</strong>.
-            </p>
-          </div>
-        `;
-      } else {
-        const filteredNodes = this.diffResult.diffNodes.filter((node) => {
-          if (this.diffFilter !== 'all' && node.diffStatus !== this.diffFilter) {
-            return false;
-          }
-          if (this.searchQuery) {
-            const q = this.searchQuery.toLowerCase();
-            const keyMatch = node.key ? String(node.key).toLowerCase().includes(q) : false;
-            const valMatch = node.value ? JSON.stringify(node.value).toLowerCase().includes(q) : false;
-            const pathMatch = node.path ? node.path.toLowerCase().includes(q) : false;
-            return keyMatch || valMatch || pathMatch;
-          }
-          return true;
-        });
-
-        if (filteredNodes.length === 0) {
-          treeContent.innerHTML = `
-            <div class="pjv-diff-empty">
-              <strong>No diff items match filter "${escapeHtml(this.diffFilter)}"</strong>
-            </div>
-          `;
-        } else {
-          filteredNodes.forEach((node) => {
-            const row = document.createElement('div');
-            row.className = `pjv-diff-row diff-${node.diffStatus || 'unchanged'}`;
-            row.style.paddingLeft = `${node.depth * 18}px`;
-
-            let badge = '';
-            if (node.diffStatus === 'added') badge = '<span class="pjv-diff-tag added">+ ADDED</span>';
-            else if (node.diffStatus === 'removed') badge = '<span class="pjv-diff-tag removed">- REMOVED</span>';
-            else if (node.diffStatus === 'modified') badge = '<span class="pjv-diff-tag modified">~ MODIFIED</span>';
-
-            let valContent = '';
-            if (node.diffStatus === 'modified' && node.oldValue !== undefined) {
-              valContent = `
-                <span class="pjv-diff-val-old">${escapeHtml(JSON.stringify(node.oldValue))}</span>
-                <span class="pjv-diff-arrow">➔</span>
-                <span class="pjv-diff-val-new">${escapeHtml(JSON.stringify(node.value))}</span>
-              `;
-            } else {
-              valContent = `<span class="pjv-diff-val">${escapeHtml(JSON.stringify(node.value))}</span>`;
-            }
-
-            row.innerHTML = `
-              <div class="pjv-diff-row-left">
-                ${badge}
-                <span class="pjv-diff-key">${escapeHtml(String(node.key ?? 'root'))}:</span>
-                ${valContent}
-              </div>
-              <span class="pjv-diff-path">${escapeHtml(node.path)}</span>
-            `;
-
-            treeContent.appendChild(row);
-          });
-        }
-      }
+      this.renderDiffTreeContent(treeContent, filterBar);
 
       treeViewWrapper.appendChild(treeContent);
       wrapper.appendChild(treeViewWrapper);
@@ -4518,8 +4461,8 @@ class DiffView {
 
       const searchInput = filterBar.querySelector('#pjv-diff-search-input');
       searchInput?.addEventListener('input', () => {
-        this.searchQuery = searchInput.value.trim();
-        this.render();
+        this.searchQuery = searchInput.value;
+        this.renderDiffTreeContent(treeContent, filterBar);
       });
     }
 
@@ -4542,6 +4485,84 @@ class DiffView {
     header.querySelector('#pjv-diff-btn-sort-keys')?.addEventListener('click', () => this.toggleSortKeys());
     header.querySelector('#pjv-diff-btn-sample')?.addEventListener('click', () => this.setSampleData());
     header.querySelector('#pjv-diff-btn-clear')?.addEventListener('click', () => this.clear('right'));
+  }
+
+  renderDiffTreeContent(treeContent, filterBar) {
+    treeContent.innerHTML = '';
+
+    if (!this.diffResult || this.diffResult.diffNodes.length === 0) {
+      treeContent.innerHTML = `
+        <div class="pjv-diff-empty">
+          <div class="pjv-diff-empty-icon">🔀</div>
+          <strong>No diff computed yet</strong>
+          <p class="pjv-diff-empty-desc">
+            Switch to Side-by-Side Editors, paste both documents, and click <strong>Compare Diff</strong>.
+          </p>
+        </div>
+      `;
+    } else {
+      const q = this.searchQuery.trim().toLowerCase();
+      const filteredNodes = this.diffResult.diffNodes.filter((node) => {
+        if (this.diffFilter !== 'all' && node.diffStatus !== this.diffFilter) {
+          return false;
+        }
+        if (q) {
+          const keyMatch = node.key !== null && node.key !== undefined ? String(node.key).toLowerCase().includes(q) : false;
+          const valMatch = node.value !== undefined ? JSON.stringify(node.value).toLowerCase().includes(q) : false;
+          const pathMatch = node.path ? node.path.toLowerCase().includes(q) : false;
+          return keyMatch || valMatch || pathMatch;
+        }
+        return true;
+      });
+
+      if (filteredNodes.length === 0) {
+        treeContent.innerHTML = `
+          <div class="pjv-diff-empty">
+            <strong>No diff items match filter "${escapeHtml(this.diffFilter)}"</strong>
+          </div>
+        `;
+      } else {
+        filteredNodes.forEach((node) => {
+          const row = document.createElement('div');
+          row.className = `pjv-diff-row diff-${node.diffStatus || 'unchanged'}`;
+          row.style.paddingLeft = `${node.depth * 18}px`;
+
+          let badge = '';
+          if (node.diffStatus === 'added') badge = '<span class="pjv-diff-tag added">+ ADDED</span>';
+          else if (node.diffStatus === 'removed') badge = '<span class="pjv-diff-tag removed">- REMOVED</span>';
+          else if (node.diffStatus === 'modified') badge = '<span class="pjv-diff-tag modified">~ MODIFIED</span>';
+
+          let valContent = '';
+          if (node.diffStatus === 'modified' && node.oldValue !== undefined) {
+            valContent = `
+              <span class="pjv-diff-val-old">${escapeHtml(JSON.stringify(node.oldValue))}</span>
+              <span class="pjv-diff-arrow">➔</span>
+              <span class="pjv-diff-val-new">${escapeHtml(JSON.stringify(node.value))}</span>
+            `;
+          } else {
+            valContent = `<span class="pjv-diff-val">${escapeHtml(JSON.stringify(node.value))}</span>`;
+          }
+
+          row.innerHTML = `
+            <div class="pjv-diff-row-left">
+              ${badge}
+              <span class="pjv-diff-key">${escapeHtml(String(node.key ?? 'root'))}:</span>
+              ${valContent}
+            </div>
+            <span class="pjv-diff-path">${escapeHtml(node.path)}</span>
+          `;
+
+          treeContent.appendChild(row);
+        });
+      }
+    }
+
+    const visibleDiffRows = treeContent.querySelectorAll('.pjv-diff-row.diff-added, .pjv-diff-row.diff-removed, .pjv-diff-row.diff-modified').length;
+    this.currentDiffIndex = 0;
+    const counterEl = filterBar.querySelector('#pjv-diff-step-counter');
+    if (counterEl) {
+      counterEl.textContent = visibleDiffRows > 0 ? `${this.currentDiffIndex + 1} of ${visibleDiffRows}` : '0 diffs';
+    }
   }
 
   setupDragAndDrop(pane, side) {

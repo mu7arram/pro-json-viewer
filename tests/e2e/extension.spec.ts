@@ -199,4 +199,113 @@ test.describe('Pro JSON Viewer E2E Browser Test Suite', () => {
     // Wait for debounced search to expand ancestors and reveal hiddenTarget
     await expect(page.locator('.pjv-viewport')).toContainText('hiddenTarget', { timeout: 5000 });
   });
+
+  test('preserves Table View tab bar scroll on far-right tab click and live-updates filter count', async ({ page, extensionId }) => {
+    const datasets: Record<string, Array<{ id: number; name: string }>> = {};
+    for (let i = 1; i <= 12; i++) {
+      const key = `datasetCollection_${String(i).padStart(2, '0')}`;
+      datasets[key] = [
+        { id: 1, name: `alpha_${i}` },
+        { id: 2, name: `matchTarget_${i}` }
+      ];
+    }
+
+    await page.goto(`chrome-extension://${extensionId}/options.html#scratchpad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.pjv-root')).toBeVisible({ timeout: 10000 });
+
+    await page.click('#pjv-btn-raw');
+    await page.locator('.pjv-raw-textarea').fill(JSON.stringify(datasets));
+    await page.click('#pjv-btn-table');
+    await expect(page.locator('.pjv-table-tabs-container')).toBeVisible({ timeout: 5000 });
+
+    const tabsBar = page.locator('.pjv-table-tabs-container');
+    await tabsBar.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+    });
+    const hasOverflow = await tabsBar.evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(hasOverflow).toBe(true);
+
+    const lastTab = page.locator('.pjv-table-tab').last();
+    await lastTab.click();
+
+    await expect(lastTab).toHaveClass(/active/);
+    const tabMetrics = await page.evaluate(() => {
+      const bar = document.querySelector('.pjv-table-tabs-container') as HTMLElement;
+      const active = document.querySelector('.pjv-table-tab.active') as HTMLElement;
+      const barRect = bar.getBoundingClientRect();
+      const activeRect = active.getBoundingClientRect();
+      return {
+        scrollLeft: bar.scrollLeft,
+        withinLeft: activeRect.left >= barRect.left - 1,
+        withinRight: activeRect.right <= barRect.right + 1
+      };
+    });
+    expect(tabMetrics.scrollLeft).toBeGreaterThan(0);
+    expect(tabMetrics.withinLeft).toBe(true);
+    expect(tabMetrics.withinRight).toBe(true);
+
+    await page.locator('.pjv-table-search-input').fill('matchTarget_12');
+    await expect(page.locator('.pjv-badge-count')).toHaveText('1 / 2 items');
+  });
+
+  test('allows vertical scrolling on large Horizontal Bar charts in Chart View', async ({ page, extensionId }) => {
+    const metrics = Array.from({ length: 30 }, (_, idx) => ({
+      name: `Metric Item ${String(idx + 1).padStart(2, '0')}`,
+      score: (idx + 1) * 10
+    }));
+
+    await page.goto(`chrome-extension://${extensionId}/options.html#scratchpad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.pjv-root')).toBeVisible({ timeout: 10000 });
+
+    await page.click('#pjv-btn-raw');
+    await page.locator('.pjv-raw-textarea').fill(JSON.stringify({ metrics }));
+    await page.click('#pjv-btn-chart');
+    await expect(page.locator('.pjv-chart-container')).toBeVisible({ timeout: 5000 });
+
+    await page.click('button:has-text("📈 Horizontal")');
+
+    const svgContainer = page.locator('.pjv-chart-svg-container');
+    await expect(svgContainer).toContainText('Metric Item 30');
+
+    const scrollMetrics = await page.evaluate(() => {
+      const svgBox = document.querySelector('.pjv-chart-svg-container') as HTMLElement;
+      const chartHost = document.querySelector('.pjv-chart-view-host') as HTMLElement;
+      const boxScrollable = svgBox.scrollHeight > svgBox.clientHeight;
+      const hostScrollable = chartHost ? chartHost.scrollHeight > chartHost.clientHeight : false;
+      if (boxScrollable) {
+        svgBox.scrollTop = svgBox.scrollHeight;
+      } else if (hostScrollable) {
+        chartHost.scrollTop = chartHost.scrollHeight;
+      }
+      return {
+        scrollable: boxScrollable || hostScrollable,
+        scrolled: (boxScrollable ? svgBox.scrollTop : chartHost?.scrollTop || 0) > 0
+      };
+    });
+    expect(scrollMetrics.scrollable).toBe(true);
+    expect(scrollMetrics.scrolled).toBe(true);
+  });
+
+  test('retains Diff search input focus while typing and omits dead expand/collapse controls', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html#scratchpad`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.pjv-root')).toBeVisible({ timeout: 10000 });
+
+    await page.click('#pjv-btn-diff');
+    await expect(page.locator('.pjv-diff-workspace')).toBeVisible({ timeout: 5000 });
+
+    await page.click('#pjv-diff-btn-sample');
+    await page.click('#pjv-diff-btn-compare');
+    await expect(page.locator('.pjv-diff-tree-view')).toBeVisible({ timeout: 5000 });
+
+    await expect(page.locator('#pjv-diff-expand-all')).toHaveCount(0);
+    await expect(page.locator('#pjv-diff-collapse-all')).toHaveCount(0);
+
+    const diffSearch = page.locator('#pjv-diff-search-input');
+    await diffSearch.click();
+    await page.keyboard.type('timeout');
+
+    await expect(diffSearch).toHaveValue('timeout');
+    const focusedId = await page.evaluate(() => document.activeElement?.id);
+    expect(focusedId).toBe('pjv-diff-search-input');
+  });
 });

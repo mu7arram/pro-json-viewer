@@ -31,6 +31,8 @@ export class Toolbar {
   private currentMode: ViewMode = 'tree';
   private maxDepth: number = 3;
   private isRawWrapped: boolean = false;
+  private currentSearchQuery: string = '';
+  private currentFilterMode: FilterMode = 'text';
 
   constructor(options: ToolbarOptions) {
     this.container = options.container;
@@ -228,9 +230,14 @@ export class Toolbar {
       this.searchInput = sub.querySelector('#pjv-search-input') as HTMLInputElement;
       this.filterSelect = sub.querySelector('#pjv-filter-mode') as HTMLSelectElement;
 
+      this.searchInput.value = this.currentSearchQuery;
+      this.filterSelect.value = this.currentFilterMode;
+
       const emitSearch = () => {
         if (this.searchInput && this.filterSelect) {
-          this.options.onSearchChange(this.searchInput.value, this.filterSelect.value as FilterMode);
+          this.currentSearchQuery = this.searchInput.value;
+          this.currentFilterMode = this.filterSelect.value as FilterMode;
+          this.options.onSearchChange(this.currentSearchQuery, this.currentFilterMode);
         }
       };
 
