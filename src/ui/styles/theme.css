@@ -1133,7 +1133,6 @@ body.pjv-injected {
 .pjv-chart-header-bar .pjv-depth-container {
   flex-shrink: 0;
 }
-}
 
 .pjv-chart-kpi-grid {
   display: grid;
