@@ -1,4 +1,4 @@
-import { copyToClipboard } from '../shared/utils';
+import { copyToClipboard, ensureTabVisible } from '../shared/utils';
 
 export interface TableViewOptions {
   container: HTMLElement;
@@ -124,6 +124,8 @@ export class TableView {
   private searchQuery: string = '';
   private scanDepth: number = 3;
   private maxDepth: number = 20;
+  private resetTableScroll: boolean = false;
+  private metaCountEl: HTMLElement | null = null;
   private onCopyToast?: (msg: string) => void;
 
   constructor(options: TableViewOptions) {
@@ -228,8 +230,15 @@ export class TableView {
   }
 
   public render() {
+    const prevTabsEl = this.container.querySelector('.pjv-table-tabs-container') as HTMLElement | null;
+    const prevTabScrollLeft = prevTabsEl ? prevTabsEl.scrollLeft : 0;
+    const prevWrapperEl = this.container.querySelector('.pjv-table-wrapper') as HTMLElement | null;
+    const prevTableScrollLeft = prevWrapperEl ? prevWrapperEl.scrollLeft : 0;
+    const prevTableScrollTop = prevWrapperEl ? prevWrapperEl.scrollTop : 0;
+
     this.container.innerHTML = '';
     if (this.datasets.length === 0) {
+      this.metaCountEl = null;
       this.container.innerHTML = `
         <div class="pjv-empty-state">
           <h3>📊 Table View Unavailable</h3>
@@ -247,10 +256,12 @@ export class TableView {
     // 1. Dashboard Tab Bar Navigation
     const tabsBar = document.createElement('div');
     tabsBar.className = 'pjv-table-tabs-container';
+    let activeTabBtn: HTMLButtonElement | null = null;
 
     this.datasets.forEach((dataset) => {
       const tabBtn = document.createElement('button');
       tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
+      tabBtn.dataset.tabId = dataset.id;
       const iconSpan = document.createElement('span');
       iconSpan.textContent = dataset.icon;
       const labelSpan = document.createElement('span');
@@ -259,8 +270,10 @@ export class TableView {
       countSpan.className = 'pjv-tab-badge';
       countSpan.textContent = String(dataset.count);
       tabBtn.append(iconSpan, labelSpan, countSpan);
+      if (dataset.id === this.activeTabId) activeTabBtn = tabBtn;
       tabBtn.onclick = () => {
         this.activeTabId = dataset.id;
+        this.resetTableScroll = true;
         this.loadActiveTab();
         this.render();
       };
@@ -280,6 +293,7 @@ export class TableView {
     const metaCount = document.createElement('span');
     metaCount.className = 'pjv-badge-count';
     metaCount.textContent = `${this.getFilteredRows().length} / ${this.currentArray.length} items`;
+    this.metaCountEl = metaCount;
     meta.append(metaTitle, metaCount);
 
     const controls = document.createElement('div');
@@ -287,6 +301,7 @@ export class TableView {
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
+    searchInput.className = 'pjv-table-search-input';
     searchInput.placeholder = 'Filter rows...';
     searchInput.value = this.searchQuery;
     searchInput.style.cssText = `
@@ -471,6 +486,17 @@ export class TableView {
     wrapper.appendChild(tableWrapper);
     this.container.appendChild(wrapper);
 
+    tabsBar.scrollLeft = prevTabScrollLeft;
+    ensureTabVisible(tabsBar, activeTabBtn);
+    if (this.resetTableScroll) {
+      tableWrapper.scrollLeft = 0;
+      tableWrapper.scrollTop = 0;
+      this.resetTableScroll = false;
+    } else {
+      tableWrapper.scrollLeft = prevTableScrollLeft;
+      tableWrapper.scrollTop = prevTableScrollTop;
+    }
+
     this.updateBody();
   }
 
@@ -517,6 +543,22 @@ export class TableView {
 
     tbody.innerHTML = '';
     const filtered = this.getFilteredRows();
+    if (this.metaCountEl) {
+      this.metaCountEl.textContent = `${filtered.length} / ${this.currentArray.length} items`;
+    }
+
+    if (filtered.length === 0) {
+      const emptyTr = document.createElement('tr');
+      const emptyTd = document.createElement('td');
+      emptyTd.colSpan = this.columns.length + 1;
+      emptyTd.className = 'pjv-table-empty-row';
+      emptyTd.textContent = this.searchQuery.trim()
+        ? `No rows match "${this.searchQuery.trim()}"`
+        : 'No rows available';
+      emptyTr.appendChild(emptyTd);
+      tbody.appendChild(emptyTr);
+      return;
+    }
 
     filtered.forEach(({ row, index }) => {
       const tr = document.createElement('tr');
@@ -547,6 +589,7 @@ export class TableView {
 
             if (targetDs) {
               this.activeTabId = targetDs.id;
+              this.resetTableScroll = true;
               this.loadActiveTab();
               this.render();
             }

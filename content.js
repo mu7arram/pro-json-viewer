@@ -1328,6 +1328,19 @@ function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj
   return results;
 }
 
+function ensureTabVisible(scrollContainer, activeBtn, padding = 12) {
+  if (!scrollContainer || !activeBtn || !scrollContainer.clientWidth) return;
+  const viewLeft = scrollContainer.scrollLeft;
+  const viewRight = viewLeft + scrollContainer.clientWidth;
+  const tabLeft = activeBtn.offsetLeft;
+  const tabRight = tabLeft + activeBtn.offsetWidth;
+  if (tabLeft < viewLeft) {
+    scrollContainer.scrollLeft = Math.max(0, tabLeft - padding);
+  } else if (tabRight > viewRight) {
+    scrollContainer.scrollLeft = tabRight - scrollContainer.clientWidth + padding;
+  }
+}
+
 class TableView {
   constructor(options) {
     this.container = options.container;
@@ -1343,6 +1356,8 @@ class TableView {
     this.sortColumn = null;
     this.sortAsc = true;
     this.searchQuery = '';
+    this.resetTableScroll = false;
+    this.metaCountEl = null;
 
     this.initDatasets();
     this.render();
@@ -1437,8 +1452,15 @@ class TableView {
   }
 
   render() {
+    const prevTabsEl = this.container.querySelector('.pjv-table-tabs-container');
+    const prevTabScrollLeft = prevTabsEl ? prevTabsEl.scrollLeft : 0;
+    const prevWrapperEl = this.container.querySelector('.pjv-table-wrapper');
+    const prevTableScrollLeft = prevWrapperEl ? prevWrapperEl.scrollLeft : 0;
+    const prevTableScrollTop = prevWrapperEl ? prevWrapperEl.scrollTop : 0;
+
     this.container.innerHTML = '';
     if (this.datasets.length === 0) {
+      this.metaCountEl = null;
       this.container.innerHTML = `
         <div class="pjv-empty-state">
           <h3>📊 Table View Unavailable</h3>
@@ -1456,10 +1478,12 @@ class TableView {
     // 1. Dashboard Tab Bar Navigation
     const tabsBar = document.createElement('div');
     tabsBar.className = 'pjv-table-tabs-container';
+    let activeTabBtn = null;
 
     this.datasets.forEach((dataset) => {
       const tabBtn = document.createElement('button');
       tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
+      tabBtn.dataset.tabId = dataset.id;
       const iconSpan = document.createElement('span');
       iconSpan.textContent = dataset.icon;
       const labelSpan = document.createElement('span');
@@ -1468,8 +1492,10 @@ class TableView {
       countSpan.className = 'pjv-tab-badge';
       countSpan.textContent = String(dataset.count);
       tabBtn.append(iconSpan, labelSpan, countSpan);
+      if (dataset.id === this.activeTabId) activeTabBtn = tabBtn;
       tabBtn.onclick = () => {
         this.activeTabId = dataset.id;
+        this.resetTableScroll = true;
         this.loadActiveTab();
         this.render();
       };
@@ -1489,6 +1515,7 @@ class TableView {
     const metaCount = document.createElement('span');
     metaCount.className = 'pjv-badge-count';
     metaCount.textContent = `${this.getFilteredRows().length} / ${this.currentArray.length} items`;
+    this.metaCountEl = metaCount;
     meta.append(metaTitle, metaCount);
 
     const controls = document.createElement('div');
@@ -1496,6 +1523,7 @@ class TableView {
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
+    searchInput.className = 'pjv-table-search-input';
     searchInput.placeholder = 'Filter rows...';
     searchInput.value = this.searchQuery;
     searchInput.style.cssText = `
@@ -1678,6 +1706,17 @@ class TableView {
     wrapper.appendChild(tableWrapper);
     this.container.appendChild(wrapper);
 
+    tabsBar.scrollLeft = prevTabScrollLeft;
+    ensureTabVisible(tabsBar, activeTabBtn);
+    if (this.resetTableScroll) {
+      tableWrapper.scrollLeft = 0;
+      tableWrapper.scrollTop = 0;
+      this.resetTableScroll = false;
+    } else {
+      tableWrapper.scrollLeft = prevTableScrollLeft;
+      tableWrapper.scrollTop = prevTableScrollTop;
+    }
+
     this.updateBody();
   }
 
@@ -1724,6 +1763,22 @@ class TableView {
 
     tbody.innerHTML = '';
     const filtered = this.getFilteredRows();
+    if (this.metaCountEl) {
+      this.metaCountEl.textContent = `${filtered.length} / ${this.currentArray.length} items`;
+    }
+
+    if (filtered.length === 0) {
+      const emptyTr = document.createElement('tr');
+      const emptyTd = document.createElement('td');
+      emptyTd.colSpan = this.columns.length + 1;
+      emptyTd.className = 'pjv-table-empty-row';
+      emptyTd.textContent = this.searchQuery.trim()
+        ? `No rows match "${this.searchQuery.trim()}"`
+        : 'No rows available';
+      emptyTr.appendChild(emptyTd);
+      tbody.appendChild(emptyTr);
+      return;
+    }
 
     filtered.forEach(({ row, index }) => {
       const tr = document.createElement('tr');
@@ -2164,6 +2219,9 @@ class ChartView {
   }
 
   render() {
+    const prevTabsEl = this.container.querySelector('.pjv-table-tabs-container');
+    const prevTabScrollLeft = prevTabsEl ? prevTabsEl.scrollLeft : 0;
+
     this.container.innerHTML = '';
 
     const wrapper = document.createElement('div');
@@ -2171,16 +2229,17 @@ class ChartView {
 
     // 1. Header Bar with Tabs & Magnetic Slider (ALWAYS rendered!)
     const headerBar = document.createElement('div');
-    headerBar.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--pjv-border-color); padding-bottom: 10px;';
+    headerBar.className = 'pjv-chart-header-bar';
 
     const tabsBar = document.createElement('div');
     tabsBar.className = 'pjv-table-tabs-container';
-    tabsBar.style.margin = '0';
+    let activeTabBtn = null;
 
     if (this.datasets.length > 0) {
       this.datasets.forEach((dataset) => {
         const tabBtn = document.createElement('button');
         tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
+        tabBtn.dataset.tabId = dataset.id;
         const countLabel = dataset.array ? dataset.array.length : (dataset.breakdown ? dataset.breakdown.length : (dataset.kpis ? dataset.kpis.length : 0));
         const iconSpan = document.createElement('span');
         iconSpan.textContent = dataset.icon;
@@ -2190,6 +2249,7 @@ class ChartView {
         countSpan.className = 'pjv-tab-badge';
         countSpan.textContent = String(countLabel);
         tabBtn.append(iconSpan, labelSpan, countSpan);
+        if (dataset.id === this.activeTabId) activeTabBtn = tabBtn;
         tabBtn.onclick = () => {
           this.activeTabId = dataset.id;
           this.configureTabDefaults();
@@ -2222,6 +2282,7 @@ class ChartView {
       `;
       wrapper.appendChild(emptyState);
       this.container.appendChild(wrapper);
+      tabsBar.scrollLeft = prevTabScrollLeft;
       return;
     }
 
@@ -2418,6 +2479,8 @@ class ChartView {
     wrapper.appendChild(chartDisplayArea);
 
     this.container.appendChild(wrapper);
+    tabsBar.scrollLeft = prevTabScrollLeft;
+    ensureTabVisible(tabsBar, activeTabBtn);
     if (activeDataset) {
       this.renderChartBody(chartDisplayArea, activeDataset);
     }
@@ -5174,6 +5237,9 @@ function openToolsModal(options) {
   let activeCollectionIdx = 0;
 
   const renderContent = () => {
+    const prevNavEl = modal.querySelector('.pjv-tools-nav');
+    const prevNavScrollLeft = prevNavEl ? prevNavEl.scrollLeft : 0;
+
     modal.innerHTML = `
       <div class="pjv-tools-header">
         <div class="pjv-tools-title-wrap">
@@ -5194,6 +5260,13 @@ function openToolsModal(options) {
 
       <div id="pjv-tools-body" class="pjv-tools-body"></div>
     `;
+
+    const toolsNav = modal.querySelector('.pjv-tools-nav');
+    const activeToolsTab = modal.querySelector('.pjv-tools-tab-btn.active');
+    if (toolsNav) {
+      toolsNav.scrollLeft = prevNavScrollLeft;
+      ensureTabVisible(toolsNav, activeToolsTab);
+    }
 
     const bodyEl = modal.querySelector('#pjv-tools-body');
     const closeBtn = modal.querySelector('#pjv-tools-close');

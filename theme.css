@@ -832,6 +832,14 @@ body.pjv-injected {
   background: var(--pjv-bg-row-hover);
 }
 
+.pjv-table-empty-row {
+  text-align: center;
+  padding: 28px 16px !important;
+  color: var(--pjv-text-muted);
+  font-style: italic;
+  max-width: none !important;
+}
+
 .pjv-table-cell-null {
   color: var(--pjv-syntax-null);
   font-style: italic;

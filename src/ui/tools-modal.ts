@@ -1,7 +1,7 @@
 import { generateTypeScript, generateZodSchema, analyzePayloadStats, formatByteSize } from '../engine/schema-generator';
 import { jsonToYaml, jsonToCsv, downloadFile } from '../engine/export-engine';
 import { analyzePayloadSchemaHealth, generateSchemaHealthMarkdown } from '../engine/schema-health';
-import { copyToClipboard } from '../shared/utils';
+import { copyToClipboard, ensureTabVisible } from '../shared/utils';
 
 export interface ToolsModalOptions {
   data: any;
@@ -25,6 +25,9 @@ export function openToolsModal(options: ToolsModalOptions) {
   let activeCollectionIdx = 0;
 
   const renderContent = () => {
+    const prevNavEl = modal.querySelector('.pjv-tools-nav') as HTMLElement | null;
+    const prevNavScrollLeft = prevNavEl ? prevNavEl.scrollLeft : 0;
+
     modal.innerHTML = `
       <div class="pjv-tools-header">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -46,6 +49,13 @@ export function openToolsModal(options: ToolsModalOptions) {
 
       <div id="pjv-tools-body" class="pjv-tools-body"></div>
     `;
+
+    const toolsNav = modal.querySelector('.pjv-tools-nav') as HTMLElement | null;
+    const activeToolsTab = modal.querySelector('.pjv-tools-tab-btn.active') as HTMLElement | null;
+    if (toolsNav) {
+      toolsNav.scrollLeft = prevNavScrollLeft;
+      ensureTabVisible(toolsNav, activeToolsTab);
+    }
 
     const bodyEl = modal.querySelector('#pjv-tools-body') as HTMLElement;
     const closeBtn = modal.querySelector('#pjv-tools-close') as HTMLButtonElement;
