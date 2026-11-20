@@ -1,7 +1,7 @@
 # Pro JSON Viewer — Chrome Web Store Listing Metadata & Documentation
 
-**Last Updated**: 2026-08-29  
-**Version**: 2.1.0  
+**Last Updated**: 2026-11-19  
+**Version**: 2.2.0  
 **Status**: Ready for Packaging & Submission  
 
 ---
@@ -57,6 +57,16 @@ Pro JSON Viewer transforms raw browser JSON responses, API payloads, and `.json`
 ---
 
 ## 4. Version History
+
+### Version 2.2.0 (2026-11-19)
+- **Security, Performance & Reliability Hardening (#43)**:
+  - Eliminated `innerHTML` HTML-injection vectors in Diff, Table, and Tools views using safe DOM builders and tightened `file://` URL handling.
+  - Optimized large-payload rendering, worker timeout handling, JSONPath evaluation, search/filter edge cases, and options page validation, with synchronized TypeScript modules and expanded unit test coverage.
+- **UI/UX Layout, Scrolling, Focus & Theme Polish (#45)**:
+  - **Tab Bar Scroll & Active Focus Retention**: Clicking far-right tabs in Table View, Chart View, and Developer Tools preserves horizontal tab strip scroll position and scrolls the active tab into view instead of resetting to the first tab.
+  - **Scrollable Charts & Flex Viewport Layout**: Replaced hardcoded viewport height subtractions with flex-fill layout across all views; Horizontal Bar charts now scroll vertically for large datasets and dense Vertical Bar charts scroll horizontally without squishing labels.
+  - **Diff View Search Focus & Cleanup**: Typing in the Diff Tree search input updates matches in-place without losing input focus, and removed non-functional Expand/Collapse All buttons.
+  - **Light Theme Contrast & Tree/Table UX**: Added missing CSS tokens (`--pjv-bg-card`, `--pjv-bg-hover`, `--pjv-accent-color`) and readable Light/GitHub Light Diff contrast; enabled horizontal Tree scrolling without losing row selection, preserved Tree search state across view switches, and added live filtered row counts and empty-filter state in Table View.
 
 ### Version 2.1.0 (2026-08-29)
 - Added **Mozilla Firefox MV3 Compatibility & Automated Onboarding**:

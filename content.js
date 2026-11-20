@@ -502,9 +502,10 @@ class Virtualizer {
     this.onRender = options.onRender;
     this.nodes = [];
     this.animationFrameId = null;
+    this.lastScrollTop = -1;
 
     this.container.style.position = 'relative';
-    this.container.style.overflowY = 'auto';
+    this.container.style.overflow = 'auto';
 
     this.totalHeightSpacer = document.createElement('div');
     this.totalHeightSpacer.className = 'virtual-spacer';
@@ -512,12 +513,13 @@ class Virtualizer {
 
     this.contentWrapper = document.createElement('div');
     this.contentWrapper.className = 'virtual-content-wrapper';
-    this.contentWrapper.style.cssText = 'width: 100%; position: absolute; top: 0; left: 0;';
+    this.contentWrapper.style.cssText = 'min-width: 100%; width: max-content; position: absolute; top: 0; left: 0;';
 
     this.container.appendChild(this.totalHeightSpacer);
     this.container.appendChild(this.contentWrapper);
 
     this.scrollListener = () => {
+      if (this.container.scrollTop === this.lastScrollTop) return;
       if (this.animationFrameId !== null) cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = requestAnimationFrame(() => this.updateView());
     };
@@ -529,6 +531,7 @@ class Virtualizer {
 
   setNodes(nodes) {
     this.nodes = nodes;
+    this.lastScrollTop = -1;
     const totalHeight = this.nodes.length * this.rowHeight;
     this.totalHeightSpacer.style.height = `${totalHeight}px`;
     this.updateView();
@@ -540,6 +543,7 @@ class Virtualizer {
 
   updateView() {
     if (this.nodes.length === 0) {
+      this.lastScrollTop = 0;
       this.totalHeightSpacer.style.height = '0px';
       this.contentWrapper.style.transform = 'translate3d(0, 0, 0)';
       this.onRender([], 0);
@@ -547,6 +551,7 @@ class Virtualizer {
     }
 
     const scrollTop = this.container.scrollTop;
+    this.lastScrollTop = scrollTop;
     const viewportHeight = this.container.clientHeight || 600;
 
     const startIndex = Math.max(0, Math.floor(scrollTop / this.rowHeight) - this.buffer);
@@ -910,6 +915,9 @@ class Toolbar {
     this.currentMode = 'tree';
     this.maxDepth = options.maxDepth || 3;
     this.isRawWrapped = false;
+    this.currentSearchQuery = '';
+    this.currentFilterMode = 'text';
+    this.lastMatchStatus = { currentOneBased: 0, totalMatches: 0, hasQuery: false };
     this.render();
   }
 
@@ -1102,10 +1110,20 @@ class Toolbar {
       this.searchPrevBtn = sub.querySelector('#pjv-search-prev');
       this.searchNextBtn = sub.querySelector('#pjv-search-next');
 
+      this.searchInput.value = this.currentSearchQuery;
+      this.filterSelect.value = this.currentFilterMode;
+      this.updateSearchMatchStatus(
+        this.lastMatchStatus.currentOneBased,
+        this.lastMatchStatus.totalMatches,
+        this.lastMatchStatus.hasQuery
+      );
+
       let searchDebounceTimer = null;
       const emitSearch = () => {
         if (this.searchInput && this.filterSelect) {
-          this.options.onSearchChange(this.searchInput.value, this.filterSelect.value);
+          this.currentSearchQuery = this.searchInput.value;
+          this.currentFilterMode = this.filterSelect.value;
+          this.options.onSearchChange(this.currentSearchQuery, this.currentFilterMode);
         }
       };
 
@@ -1215,6 +1233,7 @@ class Toolbar {
   }
 
   updateSearchMatchStatus(currentOneBased, totalMatches, hasQuery) {
+    this.lastMatchStatus = { currentOneBased, totalMatches, hasQuery };
     if (!this.searchCountEl || !this.searchPrevBtn || !this.searchNextBtn) return;
     if (!hasQuery) {
       this.searchCountEl.style.display = 'none';
@@ -1323,6 +1342,19 @@ function findAllArraysOfObjects(data, currentPath = '$', results = [], parentObj
   return results;
 }
 
+function ensureTabVisible(scrollContainer, activeBtn, padding = 12) {
+  if (!scrollContainer || !activeBtn || !scrollContainer.clientWidth) return;
+  const viewLeft = scrollContainer.scrollLeft;
+  const viewRight = viewLeft + scrollContainer.clientWidth;
+  const tabLeft = activeBtn.offsetLeft;
+  const tabRight = tabLeft + activeBtn.offsetWidth;
+  if (tabLeft < viewLeft) {
+    scrollContainer.scrollLeft = Math.max(0, tabLeft - padding);
+  } else if (tabRight > viewRight) {
+    scrollContainer.scrollLeft = tabRight - scrollContainer.clientWidth + padding;
+  }
+}
+
 class TableView {
   constructor(options) {
     this.container = options.container;
@@ -1338,6 +1370,8 @@ class TableView {
     this.sortColumn = null;
     this.sortAsc = true;
     this.searchQuery = '';
+    this.resetTableScroll = false;
+    this.metaCountEl = null;
 
     this.initDatasets();
     this.render();
@@ -1432,8 +1466,15 @@ class TableView {
   }
 
   render() {
+    const prevTabsEl = this.container.querySelector('.pjv-table-tabs-container');
+    const prevTabScrollLeft = prevTabsEl ? prevTabsEl.scrollLeft : 0;
+    const prevWrapperEl = this.container.querySelector('.pjv-table-wrapper');
+    const prevTableScrollLeft = prevWrapperEl ? prevWrapperEl.scrollLeft : 0;
+    const prevTableScrollTop = prevWrapperEl ? prevWrapperEl.scrollTop : 0;
+
     this.container.innerHTML = '';
     if (this.datasets.length === 0) {
+      this.metaCountEl = null;
       this.container.innerHTML = `
         <div class="pjv-empty-state">
           <h3>📊 Table View Unavailable</h3>
@@ -1451,10 +1492,12 @@ class TableView {
     // 1. Dashboard Tab Bar Navigation
     const tabsBar = document.createElement('div');
     tabsBar.className = 'pjv-table-tabs-container';
+    let activeTabBtn = null;
 
     this.datasets.forEach((dataset) => {
       const tabBtn = document.createElement('button');
       tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
+      tabBtn.dataset.tabId = dataset.id;
       const iconSpan = document.createElement('span');
       iconSpan.textContent = dataset.icon;
       const labelSpan = document.createElement('span');
@@ -1463,8 +1506,10 @@ class TableView {
       countSpan.className = 'pjv-tab-badge';
       countSpan.textContent = String(dataset.count);
       tabBtn.append(iconSpan, labelSpan, countSpan);
+      if (dataset.id === this.activeTabId) activeTabBtn = tabBtn;
       tabBtn.onclick = () => {
         this.activeTabId = dataset.id;
+        this.resetTableScroll = true;
         this.loadActiveTab();
         this.render();
       };
@@ -1484,6 +1529,7 @@ class TableView {
     const metaCount = document.createElement('span');
     metaCount.className = 'pjv-badge-count';
     metaCount.textContent = `${this.getFilteredRows().length} / ${this.currentArray.length} items`;
+    this.metaCountEl = metaCount;
     meta.append(metaTitle, metaCount);
 
     const controls = document.createElement('div');
@@ -1491,6 +1537,7 @@ class TableView {
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
+    searchInput.className = 'pjv-table-search-input';
     searchInput.placeholder = 'Filter rows...';
     searchInput.value = this.searchQuery;
     searchInput.style.cssText = `
@@ -1673,6 +1720,17 @@ class TableView {
     wrapper.appendChild(tableWrapper);
     this.container.appendChild(wrapper);
 
+    tabsBar.scrollLeft = prevTabScrollLeft;
+    ensureTabVisible(tabsBar, activeTabBtn);
+    if (this.resetTableScroll) {
+      tableWrapper.scrollLeft = 0;
+      tableWrapper.scrollTop = 0;
+      this.resetTableScroll = false;
+    } else {
+      tableWrapper.scrollLeft = prevTableScrollLeft;
+      tableWrapper.scrollTop = prevTableScrollTop;
+    }
+
     this.updateBody();
   }
 
@@ -1719,6 +1777,22 @@ class TableView {
 
     tbody.innerHTML = '';
     const filtered = this.getFilteredRows();
+    if (this.metaCountEl) {
+      this.metaCountEl.textContent = `${filtered.length} / ${this.currentArray.length} items`;
+    }
+
+    if (filtered.length === 0) {
+      const emptyTr = document.createElement('tr');
+      const emptyTd = document.createElement('td');
+      emptyTd.colSpan = this.columns.length + 1;
+      emptyTd.className = 'pjv-table-empty-row';
+      emptyTd.textContent = this.searchQuery.trim()
+        ? `No rows match "${this.searchQuery.trim()}"`
+        : 'No rows available';
+      emptyTr.appendChild(emptyTd);
+      tbody.appendChild(emptyTr);
+      return;
+    }
 
     filtered.forEach(({ row, index }) => {
       const tr = document.createElement('tr');
@@ -2159,6 +2233,9 @@ class ChartView {
   }
 
   render() {
+    const prevTabsEl = this.container.querySelector('.pjv-table-tabs-container');
+    const prevTabScrollLeft = prevTabsEl ? prevTabsEl.scrollLeft : 0;
+
     this.container.innerHTML = '';
 
     const wrapper = document.createElement('div');
@@ -2166,16 +2243,17 @@ class ChartView {
 
     // 1. Header Bar with Tabs & Magnetic Slider (ALWAYS rendered!)
     const headerBar = document.createElement('div');
-    headerBar.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--pjv-border-color); padding-bottom: 10px;';
+    headerBar.className = 'pjv-chart-header-bar';
 
     const tabsBar = document.createElement('div');
     tabsBar.className = 'pjv-table-tabs-container';
-    tabsBar.style.margin = '0';
+    let activeTabBtn = null;
 
     if (this.datasets.length > 0) {
       this.datasets.forEach((dataset) => {
         const tabBtn = document.createElement('button');
         tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
+        tabBtn.dataset.tabId = dataset.id;
         const countLabel = dataset.array ? dataset.array.length : (dataset.breakdown ? dataset.breakdown.length : (dataset.kpis ? dataset.kpis.length : 0));
         const iconSpan = document.createElement('span');
         iconSpan.textContent = dataset.icon;
@@ -2185,6 +2263,7 @@ class ChartView {
         countSpan.className = 'pjv-tab-badge';
         countSpan.textContent = String(countLabel);
         tabBtn.append(iconSpan, labelSpan, countSpan);
+        if (dataset.id === this.activeTabId) activeTabBtn = tabBtn;
         tabBtn.onclick = () => {
           this.activeTabId = dataset.id;
           this.configureTabDefaults();
@@ -2217,6 +2296,7 @@ class ChartView {
       `;
       wrapper.appendChild(emptyState);
       this.container.appendChild(wrapper);
+      tabsBar.scrollLeft = prevTabScrollLeft;
       return;
     }
 
@@ -2413,6 +2493,8 @@ class ChartView {
     wrapper.appendChild(chartDisplayArea);
 
     this.container.appendChild(wrapper);
+    tabsBar.scrollLeft = prevTabScrollLeft;
+    ensureTabVisible(tabsBar, activeTabBtn);
     if (activeDataset) {
       this.renderChartBody(chartDisplayArea, activeDataset);
     }
@@ -2661,9 +2743,11 @@ class ChartView {
         `;
       }).join('');
 
+      const svgClass = totalW > baseW ? 'pjv-chart-svg pjv-chart-svg-wide' : 'pjv-chart-svg';
+      const svgWidthAttr = totalW > baseW ? String(totalW) : '100%';
       return `
         <div class="pjv-chart-svg-container">
-          <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+          <svg width="${svgWidthAttr}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="${svgClass}">
             ${barsSvg}
           </svg>
         </div>
@@ -2704,7 +2788,7 @@ class ChartView {
 
     return `
       <div class="pjv-chart-svg-container">
-        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMin meet" class="pjv-chart-svg" style="height: ${totalH}px;">
           ${rowsSvg}
         </svg>
       </div>
@@ -4356,84 +4440,13 @@ class DiffView {
           <span id="pjv-diff-step-counter" class="pjv-diff-step-counter">${totalDiffs > 0 ? `${this.currentDiffIndex + 1} of ${totalDiffs}` : '0 diffs'}</span>
           <button id="pjv-diff-next" class="pjv-btn" title="Jump to next changed row">▼ Next</button>
         </div>
-
-        <div class="pjv-btn-group">
-          <button id="pjv-diff-expand-all" class="pjv-btn">Expand All</button>
-          <button id="pjv-diff-collapse-all" class="pjv-btn">Collapse All</button>
-        </div>
       `;
 
       treeViewWrapper.appendChild(filterBar);
 
       const treeContent = document.createElement('div');
       treeContent.className = 'pjv-diff-tree-content';
-
-      if (!this.diffResult || this.diffResult.diffNodes.length === 0) {
-        treeContent.innerHTML = `
-          <div class="pjv-diff-empty">
-            <div class="pjv-diff-empty-icon">🔀</div>
-            <strong>No diff computed yet</strong>
-            <p class="pjv-diff-empty-desc">
-              Switch to Side-by-Side Editors, paste both documents, and click <strong>Compare Diff</strong>.
-            </p>
-          </div>
-        `;
-      } else {
-        const filteredNodes = this.diffResult.diffNodes.filter((node) => {
-          if (this.diffFilter !== 'all' && node.diffStatus !== this.diffFilter) {
-            return false;
-          }
-          if (this.searchQuery) {
-            const q = this.searchQuery.toLowerCase();
-            const keyMatch = node.key ? String(node.key).toLowerCase().includes(q) : false;
-            const valMatch = node.value ? JSON.stringify(node.value).toLowerCase().includes(q) : false;
-            const pathMatch = node.path ? node.path.toLowerCase().includes(q) : false;
-            return keyMatch || valMatch || pathMatch;
-          }
-          return true;
-        });
-
-        if (filteredNodes.length === 0) {
-          treeContent.innerHTML = `
-            <div class="pjv-diff-empty">
-              <strong>No diff items match filter "${escapeHtml(this.diffFilter)}"</strong>
-            </div>
-          `;
-        } else {
-          filteredNodes.forEach((node) => {
-            const row = document.createElement('div');
-            row.className = `pjv-diff-row diff-${node.diffStatus || 'unchanged'}`;
-            row.style.paddingLeft = `${node.depth * 18}px`;
-
-            let badge = '';
-            if (node.diffStatus === 'added') badge = '<span class="pjv-diff-tag added">+ ADDED</span>';
-            else if (node.diffStatus === 'removed') badge = '<span class="pjv-diff-tag removed">- REMOVED</span>';
-            else if (node.diffStatus === 'modified') badge = '<span class="pjv-diff-tag modified">~ MODIFIED</span>';
-
-            let valContent = '';
-            if (node.diffStatus === 'modified' && node.oldValue !== undefined) {
-              valContent = `
-                <span class="pjv-diff-val-old">${escapeHtml(JSON.stringify(node.oldValue))}</span>
-                <span class="pjv-diff-arrow">➔</span>
-                <span class="pjv-diff-val-new">${escapeHtml(JSON.stringify(node.value))}</span>
-              `;
-            } else {
-              valContent = `<span class="pjv-diff-val">${escapeHtml(JSON.stringify(node.value))}</span>`;
-            }
-
-            row.innerHTML = `
-              <div class="pjv-diff-row-left">
-                ${badge}
-                <span class="pjv-diff-key">${escapeHtml(String(node.key ?? 'root'))}:</span>
-                ${valContent}
-              </div>
-              <span class="pjv-diff-path">${escapeHtml(node.path)}</span>
-            `;
-
-            treeContent.appendChild(row);
-          });
-        }
-      }
+      this.renderDiffTreeContent(treeContent, filterBar);
 
       treeViewWrapper.appendChild(treeContent);
       wrapper.appendChild(treeViewWrapper);
@@ -4448,8 +4461,8 @@ class DiffView {
 
       const searchInput = filterBar.querySelector('#pjv-diff-search-input');
       searchInput?.addEventListener('input', () => {
-        this.searchQuery = searchInput.value.trim();
-        this.render();
+        this.searchQuery = searchInput.value;
+        this.renderDiffTreeContent(treeContent, filterBar);
       });
     }
 
@@ -4472,6 +4485,84 @@ class DiffView {
     header.querySelector('#pjv-diff-btn-sort-keys')?.addEventListener('click', () => this.toggleSortKeys());
     header.querySelector('#pjv-diff-btn-sample')?.addEventListener('click', () => this.setSampleData());
     header.querySelector('#pjv-diff-btn-clear')?.addEventListener('click', () => this.clear('right'));
+  }
+
+  renderDiffTreeContent(treeContent, filterBar) {
+    treeContent.innerHTML = '';
+
+    if (!this.diffResult || this.diffResult.diffNodes.length === 0) {
+      treeContent.innerHTML = `
+        <div class="pjv-diff-empty">
+          <div class="pjv-diff-empty-icon">🔀</div>
+          <strong>No diff computed yet</strong>
+          <p class="pjv-diff-empty-desc">
+            Switch to Side-by-Side Editors, paste both documents, and click <strong>Compare Diff</strong>.
+          </p>
+        </div>
+      `;
+    } else {
+      const q = this.searchQuery.trim().toLowerCase();
+      const filteredNodes = this.diffResult.diffNodes.filter((node) => {
+        if (this.diffFilter !== 'all' && node.diffStatus !== this.diffFilter) {
+          return false;
+        }
+        if (q) {
+          const keyMatch = node.key !== null && node.key !== undefined ? String(node.key).toLowerCase().includes(q) : false;
+          const valMatch = node.value !== undefined ? JSON.stringify(node.value).toLowerCase().includes(q) : false;
+          const pathMatch = node.path ? node.path.toLowerCase().includes(q) : false;
+          return keyMatch || valMatch || pathMatch;
+        }
+        return true;
+      });
+
+      if (filteredNodes.length === 0) {
+        treeContent.innerHTML = `
+          <div class="pjv-diff-empty">
+            <strong>No diff items match filter "${escapeHtml(this.diffFilter)}"</strong>
+          </div>
+        `;
+      } else {
+        filteredNodes.forEach((node) => {
+          const row = document.createElement('div');
+          row.className = `pjv-diff-row diff-${node.diffStatus || 'unchanged'}`;
+          row.style.paddingLeft = `${node.depth * 18}px`;
+
+          let badge = '';
+          if (node.diffStatus === 'added') badge = '<span class="pjv-diff-tag added">+ ADDED</span>';
+          else if (node.diffStatus === 'removed') badge = '<span class="pjv-diff-tag removed">- REMOVED</span>';
+          else if (node.diffStatus === 'modified') badge = '<span class="pjv-diff-tag modified">~ MODIFIED</span>';
+
+          let valContent = '';
+          if (node.diffStatus === 'modified' && node.oldValue !== undefined) {
+            valContent = `
+              <span class="pjv-diff-val-old">${escapeHtml(JSON.stringify(node.oldValue))}</span>
+              <span class="pjv-diff-arrow">➔</span>
+              <span class="pjv-diff-val-new">${escapeHtml(JSON.stringify(node.value))}</span>
+            `;
+          } else {
+            valContent = `<span class="pjv-diff-val">${escapeHtml(JSON.stringify(node.value))}</span>`;
+          }
+
+          row.innerHTML = `
+            <div class="pjv-diff-row-left">
+              ${badge}
+              <span class="pjv-diff-key">${escapeHtml(String(node.key ?? 'root'))}:</span>
+              ${valContent}
+            </div>
+            <span class="pjv-diff-path">${escapeHtml(node.path)}</span>
+          `;
+
+          treeContent.appendChild(row);
+        });
+      }
+    }
+
+    const visibleDiffRows = treeContent.querySelectorAll('.pjv-diff-row.diff-added, .pjv-diff-row.diff-removed, .pjv-diff-row.diff-modified').length;
+    this.currentDiffIndex = 0;
+    const counterEl = filterBar.querySelector('#pjv-diff-step-counter');
+    if (counterEl) {
+      counterEl.textContent = visibleDiffRows > 0 ? `${this.currentDiffIndex + 1} of ${visibleDiffRows}` : '0 diffs';
+    }
   }
 
   setupDragAndDrop(pane, side) {
@@ -5167,6 +5258,9 @@ function openToolsModal(options) {
   let activeCollectionIdx = 0;
 
   const renderContent = () => {
+    const prevNavEl = modal.querySelector('.pjv-tools-nav');
+    const prevNavScrollLeft = prevNavEl ? prevNavEl.scrollLeft : 0;
+
     modal.innerHTML = `
       <div class="pjv-tools-header">
         <div class="pjv-tools-title-wrap">
@@ -5187,6 +5281,13 @@ function openToolsModal(options) {
 
       <div id="pjv-tools-body" class="pjv-tools-body"></div>
     `;
+
+    const toolsNav = modal.querySelector('.pjv-tools-nav');
+    const activeToolsTab = modal.querySelector('.pjv-tools-tab-btn.active');
+    if (toolsNav) {
+      toolsNav.scrollLeft = prevNavScrollLeft;
+      ensureTabVisible(toolsNav, activeToolsTab);
+    }
 
     const bodyEl = modal.querySelector('#pjv-tools-body');
     const closeBtn = modal.querySelector('#pjv-tools-close');
@@ -6374,12 +6475,15 @@ async function renderApp(mountTarget, rawJsonText, appOptions = {}) {
     });
 
     const tableContainer = document.createElement('div');
+    tableContainer.className = 'pjv-view-panel';
     tableContainer.style.display = 'none';
 
     const chartContainer = document.createElement('div');
+    chartContainer.className = 'pjv-chart-view-host';
     chartContainer.style.display = 'none';
 
     const diagramContainer = document.createElement('div');
+    diagramContainer.className = 'pjv-view-panel';
     diagramContainer.style.display = 'none';
 
     const diffContainer = document.createElement('div');

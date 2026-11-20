@@ -24,11 +24,30 @@ function fallbackCopy(text: string): Promise<void> {
       reject(err);
     }
   });
-}export function escapeHtml(str: any): string {
+}
+
+export function escapeHtml(str: any): string {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+export function ensureTabVisible(
+  scrollContainer: HTMLElement | null,
+  activeBtn: HTMLElement | null,
+  padding: number = 12
+): void {
+  if (!scrollContainer || !activeBtn || !scrollContainer.clientWidth) return;
+  const viewLeft = scrollContainer.scrollLeft;
+  const viewRight = viewLeft + scrollContainer.clientWidth;
+  const tabLeft = activeBtn.offsetLeft;
+  const tabRight = tabLeft + activeBtn.offsetWidth;
+  if (tabLeft < viewLeft) {
+    scrollContainer.scrollLeft = Math.max(0, tabLeft - padding);
+  } else if (tabRight > viewRight) {
+    scrollContainer.scrollLeft = tabRight - scrollContainer.clientWidth + padding;
+  }
 }

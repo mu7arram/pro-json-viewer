@@ -1,6 +1,6 @@
 # Build Instructions for Pro JSON Viewer (Mozilla AMO Review)
 
-This document provides step-by-step instructions to reproduce and verify the exact build artifact for **Pro JSON Viewer v2.1.0** from this source package.
+This document provides step-by-step instructions to reproduce and verify the exact build artifact for **Pro JSON Viewer v2.2.0** from this source package.
 
 ---
 
@@ -42,7 +42,7 @@ npm run build:firefox
 1. `node scripts/generate-icons.js`: Generates the standard PNG icons from source assets.
 2. `npx vite build`: Transpiles TypeScript source code and bundles the popup and options pages using Vite with the `TARGET_BROWSER=firefox` environment variable.
 3. Automatically applies the Firefox-specific configuration from `manifest.firefox.json` to `dist/manifest.json`.
-4. Packages the contents of `dist/` into `pro-json-viewer-firefox-v2.1.0.zip`.
+4. Packages the contents of `dist/` into `pro-json-viewer-firefox-v2.2.0.zip`.
 
 ---
 
@@ -50,5 +50,5 @@ npm run build:firefox
 
 After the build completes:
 - The compiled add-on is located in the `dist/` directory.
-- The zip file `pro-json-viewer-firefox-v2.1.0.zip` is created at the root directory.
+- The zip file `pro-json-viewer-firefox-v2.2.0.zip` is created at the root directory.
 - You can inspect the compiled output or load `dist/manifest.json` directly into Firefox via `about:debugging#/runtime/this-firefox` > **"Load Temporary Add-on…"**.

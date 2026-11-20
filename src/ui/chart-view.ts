@@ -1,3 +1,5 @@
+import { ensureTabVisible } from '../shared/utils';
+
 export interface ChartViewOptions {
   container: HTMLElement;
   data: any;
@@ -322,6 +324,9 @@ export class ChartView {
   }
 
   public render() {
+    const prevTabsEl = this.container.querySelector('.pjv-table-tabs-container') as HTMLElement | null;
+    const prevTabScrollLeft = prevTabsEl ? prevTabsEl.scrollLeft : 0;
+
     this.container.innerHTML = '';
 
     const wrapper = document.createElement('div');
@@ -329,16 +334,17 @@ export class ChartView {
 
     // 1. Header Bar with Tabs & Magnetic Slider (ALWAYS rendered!)
     const headerBar = document.createElement('div');
-    headerBar.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--pjv-border-color); padding-bottom: 10px;';
+    headerBar.className = 'pjv-chart-header-bar';
 
     const tabsBar = document.createElement('div');
     tabsBar.className = 'pjv-table-tabs-container';
-    tabsBar.style.margin = '0';
+    let activeTabBtn: HTMLButtonElement | null = null;
 
     if (this.datasets.length > 0) {
       this.datasets.forEach((dataset) => {
         const tabBtn = document.createElement('button');
         tabBtn.className = `pjv-table-tab ${dataset.id === this.activeTabId ? 'active' : ''}`;
+        tabBtn.dataset.tabId = dataset.id;
         const countLabel = dataset.array ? dataset.array.length : (dataset.breakdown ? dataset.breakdown.length : (dataset.kpis ? dataset.kpis.length : 0));
         const iconSpan = document.createElement('span');
         iconSpan.textContent = dataset.icon;
@@ -348,6 +354,7 @@ export class ChartView {
         countSpan.className = 'pjv-tab-badge';
         countSpan.textContent = String(countLabel);
         tabBtn.append(iconSpan, labelSpan, countSpan);
+        if (dataset.id === this.activeTabId) activeTabBtn = tabBtn;
         tabBtn.onclick = () => {
           this.activeTabId = dataset.id;
           this.configureTabDefaults();
@@ -380,6 +387,7 @@ export class ChartView {
       `;
       wrapper.appendChild(emptyState);
       this.container.appendChild(wrapper);
+      tabsBar.scrollLeft = prevTabScrollLeft;
       return;
     }
 
@@ -576,6 +584,8 @@ export class ChartView {
     wrapper.appendChild(chartDisplayArea);
 
     this.container.appendChild(wrapper);
+    tabsBar.scrollLeft = prevTabScrollLeft;
+    ensureTabVisible(tabsBar, activeTabBtn);
     this.renderChartBody(chartDisplayArea, activeDataset);
   }
 
@@ -822,9 +832,11 @@ export class ChartView {
         `;
       }).join('');
 
+      const svgClass = totalW > baseW ? 'pjv-chart-svg pjv-chart-svg-wide' : 'pjv-chart-svg';
+      const svgWidthAttr = totalW > baseW ? String(totalW) : '100%';
       return `
         <div class="pjv-chart-svg-container">
-          <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+          <svg width="${svgWidthAttr}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="${svgClass}">
             ${barsSvg}
           </svg>
         </div>
@@ -865,7 +877,7 @@ export class ChartView {
 
     return `
       <div class="pjv-chart-svg-container">
-        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMid meet" class="pjv-chart-svg">
+        <svg width="100%" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" preserveAspectRatio="xMidYMin meet" class="pjv-chart-svg" style="height: ${totalH}px;">
           ${rowsSvg}
         </svg>
       </div>
